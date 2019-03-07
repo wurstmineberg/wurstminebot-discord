@@ -1,0 +1,14 @@
+[Unit]
+Description=Wurstmineberg Discord bot
+Documentation=https://github.com/wurstmineberg/wurstminebot-discord
+After=network.target
+
+[Service]
+Restart=always
+ExecStart=cargo run --release
+User=wurstmineberg
+Group=wurstmineberg
+WorkingDirectory=/opt/git/github.com/wurstmineberg/wurstminebot-discord/master
+
+[Install]
+WantedBy=multi-user.target
