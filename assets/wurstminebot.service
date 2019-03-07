@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Restart=always
-ExecStart=cargo run --release
+ExecStart=/opt/wurstmineberg/.cargo/bin/cargo run --release
 User=wurstmineberg
 Group=wurstmineberg
 WorkingDirectory=/opt/git/github.com/wurstmineberg/wurstminebot-discord/master
