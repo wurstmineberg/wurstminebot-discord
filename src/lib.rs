@@ -122,7 +122,7 @@ impl Key for ShardManagerContainer {
 /// **TODO:** document available IPC commands
 pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> Result<String, Error> {
     let mut stream = TcpStream::connect(IPC_ADDR)?;
-    write!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
+    writeln!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
     let mut buf = String::default();
     BufReader::new(stream).read_line(&mut buf)?;
     if buf.pop() != Some('\n') { return Err(OtherError::MissingNewline.into()) }
