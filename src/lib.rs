@@ -7,8 +7,14 @@
 #![forbid(unused_import_braces)]
 
 use std::{
+    fmt,
     fs::File,
-    io,
+    io::{
+        self,
+        BufReader,
+        prelude::*
+    },
+    net::TcpStream,
     path::Path,
     sync::Arc
 };
@@ -22,9 +28,36 @@ use wrapped_enum::wrapped_enum;
 
 pub mod voice;
 
+/// The address and port where the bot listens for IPC commands.
+pub const IPC_ADDR: &str = "127.0.0.1:18809";
+
 /// The directory where all Wurstmineberg-related files are located: `/opt/wurstmineberg`.
 pub fn base_path() -> &'static Path { //TODO make this a constant when stable
     Path::new("/opt/wurstmineberg")
+}
+
+/// A collection of possible errors not simply forwarded from other libraries.
+#[derive(Debug)]
+pub enum OtherError {
+    /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
+    MissingContext,
+    /// The reply to an IPC command did not end in a newline.
+    MissingNewline,
+    /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
+    Shlex,
+    /// Returned from `listen_ipc` if an unknown command is received.
+    UnknownCommand(Vec<String>)
+}
+
+impl fmt::Display for OtherError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            OtherError::MissingContext => write!(f, "Serenity context not available before ready event"),
+            OtherError::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
+            OtherError::Shlex => write!(f, "failed to parse IPC command line"),
+            OtherError::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
+        }
+    }
 }
 
 wrapped_enum! {
@@ -34,9 +67,22 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
+        Other(OtherError),
+        #[allow(missing_docs)]
         SerDe(serde_json::Error),
         #[allow(missing_docs)]
         Serenity(serenity::Error)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Error::Io(ref e) => e.fmt(f),
+            Error::Other(ref e) => e.fmt(f),
+            Error::SerDe(ref e) => e.fmt(f),
+            Error::Serenity(ref e) => e.fmt(f)
+        }
     }
 }
 
@@ -69,6 +115,18 @@ pub struct ShardManagerContainer;
 
 impl Key for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
+}
+
+/// Sends an IPC command to the bot.
+///
+/// **TODO:** document available IPC commands
+pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> Result<String, Error> {
+    let mut stream = TcpStream::connect(IPC_ADDR)?;
+    write!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
+    let mut buf = String::default();
+    BufReader::new(stream).read_line(&mut buf)?;
+    if buf.pop() != Some('\n') { return Err(OtherError::MissingNewline.into()) }
+    Ok(buf)
 }
 
 /// Utility function to shut down all shards.
