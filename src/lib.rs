@@ -2,9 +2,10 @@
 
 #![cfg_attr(test, deny(warnings))]
 #![warn(trivial_casts)]
-#![deny(unused, missing_docs, unused_qualifications)]
+#![deny(unused, missing_docs, unused_import_braces, unused_qualifications)]
 #![deny(rust_2018_idioms)] // this badly-named lint actually produces errors when Rust 2015 idioms are used
-#![forbid(unused_import_braces)]
+
+#[macro_use] extern crate diesel;
 
 use std::{
     fmt,
@@ -18,6 +19,7 @@ use std::{
     path::Path,
     sync::Arc
 };
+use diesel::prelude::*;
 use serde_derive::Deserialize;
 use serenity::{
     client::bridge::gateway::ShardManager,
@@ -26,6 +28,11 @@ use serenity::{
 use typemap::Key;
 use wrapped_enum::wrapped_enum;
 
+pub mod commands;
+pub mod emoji;
+pub mod parse;
+pub mod people;
+pub mod schema;
 pub mod voice;
 
 /// The address and port where the bot listens for IPC commands.
@@ -41,6 +48,8 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
 pub enum OtherError {
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
     MissingContext,
+    /// Returned by the user list handler if a user has no join date.
+    MissingJoinDate,
     /// The reply to an IPC command did not end in a newline.
     MissingNewline,
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
@@ -53,6 +62,7 @@ impl fmt::Display for OtherError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             OtherError::MissingContext => write!(f, "Serenity context not available before ready event"),
+            OtherError::MissingJoinDate => write!(f, "encountered user without join date"),
             OtherError::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
             OtherError::Shlex => write!(f, "failed to parse IPC command line"),
             OtherError::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
@@ -64,6 +74,8 @@ wrapped_enum! {
     /// Errors that may occur in this crate.
     #[derive(Debug)]
     pub enum Error {
+        #[allow(missing_docs)]
+        Diesel(diesel::result::Error),
         #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
@@ -78,6 +90,7 @@ wrapped_enum! {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Error::Diesel(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
             Error::Other(ref e) => e.fmt(f),
             Error::SerDe(ref e) => e.fmt(f),
@@ -115,6 +128,13 @@ pub struct ShardManagerContainer;
 
 impl Key for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
+}
+
+/// `typemap` key for the PostgreSQL database connection.
+pub struct Database;
+
+impl Key for Database {
+    type Value = Mutex<PgConnection>;
 }
 
 /// Sends an IPC command to the bot.

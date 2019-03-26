@@ -9,7 +9,7 @@ use serde_json::{
     self,
     json
 };
-use serenity::model::user::User;
+use serenity::model::prelude::*;
 use typemap::Key;
 use crate::base_path;
 
