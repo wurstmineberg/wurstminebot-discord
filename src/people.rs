@@ -16,7 +16,7 @@ use crate::{
 ///
 /// Information about People is stored in the `people` table in the `wurstmineberg` PostgreSQL database.
 #[allow(unused)]
-#[derive(Queryable)]
+#[derive(Debug, Queryable)]
 pub struct Person {
     id: i32,
     wmbid: Option<String>,

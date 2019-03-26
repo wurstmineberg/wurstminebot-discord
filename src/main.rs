@@ -80,11 +80,6 @@ impl EventHandler for Handler {
     }
 
     fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
-        let data = ctx.data.lock();
-        let conn = data.get::<Database>().expect("missing database connection").lock();
-        for member in guild.members.values() {
-            Person::update_discord_data(&conn, member).expect("failed to update Discord data on guild_create");
-        }
         let mut chan_map = <VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
@@ -98,6 +93,12 @@ impl EventHandler for Handler {
             }
         }
         let mut data = ctx.data.lock();
+        {
+            let conn = data.get::<Database>().expect("missing database connection").lock();
+            for member in guild.members.values() {
+                Person::update_discord_data(&conn, member).expect("failed to update Discord data on guild_create");
+            }
+        }
         data.insert::<VoiceStates>(chan_map);
         let chan_map = data.get::<VoiceStates>().expect("missing voice states map");
         voice::dump_info(chan_map).expect("failed to update voice info");
