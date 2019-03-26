@@ -3,10 +3,7 @@
 #![allow(missing_docs)]
 
 use std::sync::Arc;
-use rand::{
-    Rng,
-    thread_rng
-};
+use rand::prelude::*;
 use serenity::{
     framework::standard::{
         Args,

@@ -17,6 +17,7 @@ bench = false
 
 [dependencies]
 chrono = "*"
+dotenv = "*"
 lazy_static = "1"
 rand = "*"
 regex = "1"

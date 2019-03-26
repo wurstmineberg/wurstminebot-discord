@@ -24,6 +24,8 @@ use std::{
     time::Duration
 };
 use chrono::prelude::*;
+use diesel::prelude::*;
+use dotenv::dotenv;
 use serenity::{
     framework::standard::{
         StandardFramework,
@@ -193,6 +195,7 @@ fn notify_ipc_crash(e: Error) {
 }
 
 fn main() -> Result<(), Error> {
+    dotenv()?;
     let mut args = env::args().peekable();
     let _ = args.next(); // ignore executable name
     if args.peek().is_some() {
@@ -210,6 +213,7 @@ fn main() -> Result<(), Error> {
         };
         {
             let mut data = client.data.lock();
+            data.insert::<Database>(Mutex::new(PgConnection::establish(&env::var("DATABASE_URL")?)?));
             data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
             data.insert::<VoiceStates>(BTreeMap::default());
         }

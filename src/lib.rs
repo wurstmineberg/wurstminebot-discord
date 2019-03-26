@@ -8,6 +8,7 @@
 #[macro_use] extern crate diesel;
 
 use std::{
+    env,
     fmt,
     fs::File,
     io::{
@@ -77,6 +78,12 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Diesel(diesel::result::Error),
         #[allow(missing_docs)]
+        DieselConnection(ConnectionError),
+        #[allow(missing_docs)]
+        DotEnv(dotenv::Error),
+        #[allow(missing_docs)]
+        Envar(env::VarError),
+        #[allow(missing_docs)]
         Io(io::Error),
         #[allow(missing_docs)]
         Other(OtherError),
@@ -91,6 +98,9 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::Diesel(ref e) => e.fmt(f),
+            Error::DieselConnection(ref e) => e.fmt(f),
+            Error::DotEnv(ref e) => e.fmt(f),
+            Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
             Error::Other(ref e) => e.fmt(f),
             Error::SerDe(ref e) => e.fmt(f),
