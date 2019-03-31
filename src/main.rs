@@ -41,6 +41,7 @@ use wurstminebot::{
     Error,
     OtherError,
     ShardManagerContainer,
+    WURSTMINEBERG,
     commands,
     people::Person,
     shut_down,
@@ -168,6 +169,12 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TOD
                     shut_down(&ctx);
                     thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
                     writeln!(&mut &stream, "shutdown complete")?;
+                }
+                "set-display-name" => {
+                    let user = args[1].parse::<UserId>()?.to_user()?;
+                    let new_display_name = &args[2];
+                    WURSTMINEBERG.edit_member(&user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name }))?;
+                    writeln!(&mut &stream, "display name set")?;
                 }
                 _ => { return Err(OtherError::UnknownCommand(args).into()); }
             }

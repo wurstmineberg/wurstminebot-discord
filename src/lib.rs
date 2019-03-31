@@ -24,6 +24,7 @@ use diesel::prelude::*;
 use serde_derive::Deserialize;
 use serenity::{
     client::bridge::gateway::ShardManager,
+    model::prelude::*,
     prelude::*
 };
 use typemap::Key;
@@ -38,6 +39,9 @@ pub mod voice;
 
 /// The address and port where the bot listens for IPC commands.
 pub const IPC_ADDR: &str = "127.0.0.1:18809";
+
+/// The guild ID for the Wurstmineberg guild.
+pub const WURSTMINEBERG: GuildId = GuildId(88318761228054528);
 
 /// The directory where all Wurstmineberg-related files are located: `/opt/wurstmineberg`.
 pub fn base_path() -> &'static Path { //TODO make this a constant when stable
@@ -90,7 +94,9 @@ wrapped_enum! {
         #[allow(missing_docs)]
         SerDe(serde_json::Error),
         #[allow(missing_docs)]
-        Serenity(serenity::Error)
+        Serenity(serenity::Error),
+        #[allow(missing_docs)]
+        UserIdParse(UserIdParseError)
     }
 }
 
@@ -104,7 +110,8 @@ impl fmt::Display for Error {
             Error::Io(ref e) => e.fmt(f),
             Error::Other(ref e) => e.fmt(f),
             Error::SerDe(ref e) => e.fmt(f),
-            Error::Serenity(ref e) => e.fmt(f)
+            Error::Serenity(ref e) => e.fmt(f),
+            Error::UserIdParse(ref e) => e.fmt(f)
         }
     }
 }
