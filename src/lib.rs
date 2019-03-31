@@ -84,8 +84,6 @@ wrapped_enum! {
         #[allow(missing_docs)]
         DieselConnection(ConnectionError),
         #[allow(missing_docs)]
-        DotEnv(dotenv::Error),
-        #[allow(missing_docs)]
         Envar(env::VarError),
         #[allow(missing_docs)]
         Io(io::Error),
@@ -105,7 +103,6 @@ impl fmt::Display for Error {
         match *self {
             Error::Diesel(ref e) => e.fmt(f),
             Error::DieselConnection(ref e) => e.fmt(f),
-            Error::DotEnv(ref e) => e.fmt(f),
             Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
             Error::Other(ref e) => e.fmt(f),
