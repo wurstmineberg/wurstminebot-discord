@@ -94,7 +94,21 @@ wrapped_enum! {
         #[allow(missing_docs)]
         Serenity(serenity::Error),
         #[allow(missing_docs)]
-        UserIdParse(UserIdParseError)
+        UserIdParse(UserIdParseError),
+        #[allow(missing_docs)]
+        Wrapped((String, Box<Error>))
+    }
+}
+
+/// A helper trait for annotating errors with more informative error messages.
+pub trait IntoResult<T> {
+    /// Annotates an error with an additional message which is displayed along with the error.
+    fn annotate(self, msg: impl Into<String>) -> Result<T, Error>;
+}
+
+impl<T, E: Into<Error>> IntoResult<T> for Result<T, E> {
+    fn annotate(self, msg: impl Into<String>) -> Result<T, Error> {
+        self.map_err(|e| Error::Wrapped((msg.into(), Box::new(e.into()))))
     }
 }
 
@@ -108,7 +122,8 @@ impl fmt::Display for Error {
             Error::Other(ref e) => e.fmt(f),
             Error::SerDe(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
-            Error::UserIdParse(ref e) => e.fmt(f)
+            Error::UserIdParse(ref e) => e.fmt(f),
+            Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
         }
     }
 }

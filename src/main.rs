@@ -38,6 +38,7 @@ use wurstminebot::{
     Config,
     Database,
     Error,
+    IntoResult,
     OtherError,
     ShardManagerContainer,
     WURSTMINEBERG,
@@ -157,23 +158,23 @@ impl EventHandler for Handler {
 }
 
 fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
-    for stream in TcpListener::bind(wurstminebot::IPC_ADDR)?.incoming() {
-        let stream = stream?;
+    for stream in TcpListener::bind(wurstminebot::IPC_ADDR).annotate("failed to start listening on IPC port")?.incoming() {
+        let stream = stream.annotate("failed to initialize IPC connection")?;
         for line in BufReader::new(&stream).lines() {
-            let args = shlex::split(&line?).ok_or(OtherError::Shlex)?;
+            let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(OtherError::Shlex)?;
             match &args[0][..] {
                 "quit" => {
                     let ctx_guard = ctx_arc.lock();
                     let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
                     shut_down(&ctx);
                     thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
-                    writeln!(&mut &stream, "shutdown complete")?;
+                    writeln!(&mut &stream, "shutdown complete").annotate("failed to send quit confirmation")?;
                 }
                 "set-display-name" => {
-                    let user = args[1].parse::<UserId>()?.to_user()?;
+                    let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user().annotate("failed to get user for set-display-name")?;
                     let new_display_name = &args[2];
-                    WURSTMINEBERG.edit_member(&user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name }))?;
-                    writeln!(&mut &stream, "display name set")?;
+                    WURSTMINEBERG.edit_member(&user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })).annotate("failed to edit member")?;
+                    writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
                 }
                 _ => { return Err(OtherError::UnknownCommand(args).into()); }
             }
