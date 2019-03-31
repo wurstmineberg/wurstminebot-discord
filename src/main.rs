@@ -173,8 +173,15 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TOD
                 "set-display-name" => {
                     let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user().annotate("failed to get user for set-display-name")?;
                     let new_display_name = &args[2];
-                    WURSTMINEBERG.edit_member(&user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })).annotate("failed to edit member")?;
-                    writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
+                    match WURSTMINEBERG.edit_member(&user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })) {
+                        Ok(()) => {
+                            writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
+                        }
+                        Err(serenity::Error::Http(HttpError::UnsuccessfulRequest(response))) => {
+                            writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
+                        }
+                        Err(e) => { return Err(e).annotate("failed to edit member"); }
+                    }
                 }
                 _ => { return Err(OtherError::UnknownCommand(args).into()); }
             }
