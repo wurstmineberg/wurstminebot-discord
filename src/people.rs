@@ -89,6 +89,7 @@ impl Person {
         let user = member.user.read().clone();
         diesel::update(people.filter(snowflake.eq(Some(user.id.0 as i64))))
             .set(discorddata.eq(Some(json!({
+                "avatar": user.avatar_url(),
                 "discriminator": user.discriminator,
                 "joined": if let Some(ref join_date) = member.joined_at { join_date } else { return Err(OtherError::MissingJoinDate.into()) },
                 "nick": &member.nick,
