@@ -2,6 +2,7 @@
 
 [Build Status]: https://travis-ci.org/wurstmineberg/wurstminebot-discord.svg?branch=master
 [travis]: https://travis-ci.org/wurstmineberg/wurstminebot-discord
+<!-- when updating minimum Rust version here, also update .travis.yml -->
 [Rust version 1.36+]: https://img.shields.io/badge/rust-1.36+-93450a.svg
 [rust]: https://blog.rust-lang.org/2019/07/04/Rust-1.36.0.html
 
