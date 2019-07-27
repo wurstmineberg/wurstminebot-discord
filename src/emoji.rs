@@ -1,17 +1,19 @@
 //! Some utilities for working with emoji (both Unicode and custom) and message reactions.
 
-use std::{
-    collections::BTreeSet,
-    ffi::OsString,
-    fmt,
-    fs,
-    io,
-    mem,
-    str::FromStr
+use {
+    std::{
+        collections::BTreeSet,
+        ffi::OsString,
+        fmt,
+        fs,
+        io,
+        mem,
+        str::FromStr
+    },
+    lazy_static::lazy_static,
+    regex::Regex,
+    serenity::model::prelude::*
 };
-use lazy_static::lazy_static;
-use regex::Regex;
-use serenity::model::prelude::*;
 
 /// An error that can occur while parsing emoji from a message.
 #[derive(Debug)]

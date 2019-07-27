@@ -1,15 +1,17 @@
 //! Model types.
 
-use diesel::prelude::*;
-use serde_json::{
-    Value as Json,
-    json
-};
-use serenity::model::prelude::*;
-use crate::{
-    Error,
-    OtherError,
-    schema::people::dsl::*
+use {
+    diesel::prelude::*,
+    serde_json::{
+        Value as Json,
+        json
+    },
+    serenity::model::prelude::*,
+    crate::{
+        Error,
+        OtherError,
+        schema::people::dsl::*
+    }
 };
 
 /// A Person is a member (or former member or invitee) of Wurstmineberg.
@@ -86,6 +88,7 @@ impl Person {
     ///
     /// If successful, the updated Person is returned.
     pub fn update_discord_data(conn: &PgConnection, member: &Member) -> Result<Option<Person>, Error> {
+        //TODO update display name in data column
         let user = member.user.read().clone();
         diesel::update(people.filter(snowflake.eq(Some(user.id.0 as i64))))
             .set(discorddata.eq(Some(json!({

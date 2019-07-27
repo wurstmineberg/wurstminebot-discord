@@ -1,34 +1,33 @@
 //! The base library for the Wurstmineberg Discord bot, wurstminebot
 
-#![cfg_attr(test, deny(warnings))]
-#![warn(trivial_casts)]
-#![deny(unused, missing_docs, unused_import_braces, unused_qualifications)]
-#![deny(rust_2018_idioms)] // this badly-named lint actually produces errors when Rust 2015 idioms are used
+#![deny(missing_docs, rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
 
 #[macro_use] extern crate diesel;
 
-use std::{
-    env,
-    fmt,
-    fs::File,
-    io::{
-        self,
-        BufReader,
+use {
+    std::{
+        env,
+        fmt,
+        fs::File,
+        io::{
+            self,
+            BufReader,
+            prelude::*
+        },
+        net::TcpStream,
+        path::Path,
+        sync::Arc
+    },
+    diesel::prelude::*,
+    serde_derive::Deserialize,
+    serenity::{
+        client::bridge::gateway::ShardManager,
+        model::prelude::*,
         prelude::*
     },
-    net::TcpStream,
-    path::Path,
-    sync::Arc
+    typemap::Key,
+    wrapped_enum::wrapped_enum
 };
-use diesel::prelude::*;
-use serde_derive::Deserialize;
-use serenity::{
-    client::bridge::gateway::ShardManager,
-    model::prelude::*,
-    prelude::*
-};
-use typemap::Key;
-use wrapped_enum::wrapped_enum;
 
 pub mod commands;
 pub mod emoji;
@@ -181,7 +180,7 @@ pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> R
 /// Utility function to shut down all shards.
 pub fn shut_down(ctx: &Context) {
     ctx.invisible(); // hack to prevent the bot showing as online when it's not
-    let data = ctx.data.lock();
+    let data = ctx.data.read();
     let mut shard_manager = data.get::<ShardManagerContainer>().expect("missing shard manager").lock();
     shard_manager.shutdown_all();
 }

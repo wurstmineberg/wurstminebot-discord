@@ -1,17 +1,19 @@
 //! Writes info about voice channels to disk.
 
-use std::{
-    collections::BTreeMap,
-    fs::File,
-    io
+use {
+    std::{
+        collections::BTreeMap,
+        fs::File,
+        io
+    },
+    serde_json::{
+        self,
+        json
+    },
+    serenity::model::prelude::*,
+    typemap::Key,
+    crate::base_path
 };
-use serde_json::{
-    self,
-    json
-};
-use serenity::model::prelude::*;
-use typemap::Key;
-use crate::base_path;
 
 /// `typemap` key for the voice state data: A mapping of voice channel names to users.
 pub struct VoiceStates;

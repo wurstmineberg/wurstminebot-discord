@@ -1,10 +1,12 @@
 #![allow(missing_docs)] //TODO
 
-use std::str::FromStr;
-use diesel::prelude::*;
-use regex::Regex;
-use serenity::model::prelude::*;
-use crate::people::Person;
+use {
+    std::str::FromStr,
+    diesel::prelude::*,
+    regex::Regex,
+    serenity::model::prelude::*,
+    crate::people::Person
+};
 
 pub fn eat_optional_prefix(cmd: &mut &str, prefix: char) -> bool {
     if cmd.starts_with(prefix) {
