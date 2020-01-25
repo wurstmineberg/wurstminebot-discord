@@ -16,19 +16,27 @@ test = false
 bench = false
 
 [dependencies]
-chrono = "*"
+chrono = "0.4"
+derive_more = "0.99"
 lazy_static = "1"
-rand = "*"
+rand = "0.7"
 regex = "1"
-serde = "1"
-serde_derive = "1"
 serde_json = "1"
-serenity = "*"
-shlex = "*"
-typemap = "*"
-whoami = "*"
-wrapped_enum = "*"
+serenity = "0.8"
+shlex = "0.1"
+twitchchat = "0.7"
+typemap = "0.3"
+whoami = "0.7"
 
 [dependencies.diesel]
 version = "1"
 features = ["postgres", "serde_json"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.systemd_minecraft]
+git = "https://github.com/wurstmineberg/systemd-minecraft"
+branch = "riir"
+package = "minecraft"

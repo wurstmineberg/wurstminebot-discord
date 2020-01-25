@@ -76,14 +76,13 @@ fn veto(ctx: &mut Context, _: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
-group!({
-    name: "main",
-    commands: [
-        ping,
-        poll,
-        quit,
-        veto
-    ]
-});
+#[group]
+#[commands(
+    ping,
+    poll,
+    quit,
+    veto
+)]
+struct Main;
 
 pub use self::MAIN_GROUP as GROUP;

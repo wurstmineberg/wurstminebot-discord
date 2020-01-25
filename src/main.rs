@@ -28,18 +28,19 @@ use {
         model::prelude::*,
         prelude::*
     },
+    systemd_minecraft::World,
     typemap::Key,
     wurstminebot::{
         Config,
         Database,
         Error,
         IntoResult,
-        OtherError,
         ShardManagerContainer,
         WURSTMINEBERG,
         commands,
         people::Person,
         shut_down,
+        twitch,
         voice::{
             self,
             VoiceStates
@@ -157,18 +158,18 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TOD
     for stream in TcpListener::bind(wurstminebot::IPC_ADDR).annotate("failed to start listening on IPC port")?.incoming() {
         let stream = stream.annotate("failed to initialize IPC connection")?;
         for line in BufReader::new(&stream).lines() {
-            let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(OtherError::Shlex)?;
+            let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(Error::Shlex)?;
             match &args[0][..] {
                 "quit" => {
                     let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
+                    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
                     shut_down(&ctx);
                     thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
                     writeln!(&mut &stream, "shutdown complete").annotate("failed to send quit confirmation")?;
                 }
                 "set-display-name" => {
                     let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(OtherError::MissingContext)?;
+                    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
                     let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
                     let new_display_name = &args[2];
                     match WURSTMINEBERG.edit_member(ctx, &user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })) {
@@ -184,14 +185,14 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TOD
                         Err(e) => { return Err(e).annotate("failed to edit member"); }
                     }
                 }
-                _ => { return Err(OtherError::UnknownCommand(args).into()); }
+                _ => { return Err(Error::UnknownCommand(args)); }
             }
         }
     }
     unreachable!();
 }
 
-fn notify_ipc_crash(e: Error) {
+fn notify_thread_crash(thread_kind: &str, e: Error) {
     let mut child = Command::new("ssmtp")
         .arg("root@wurstmineberg.de")
         .stdin(Stdio::piped())
@@ -201,10 +202,11 @@ fn notify_ipc_crash(e: Error) {
         let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
         write!(
             stdin,
-            "To: root@wurstmineberg.de\nFrom: {}@{}\nSubject: wurstminebot IPC thread crashed\n\nwurstminebot IPC thread crashed with the following error:\n{}\n",
-            whoami::username(),
-            whoami::hostname(),
-            e
+            "To: root@wurstmineberg.de\nFrom: {user}@{host}\nSubject: wurstminebot {thread} thread crashed\n\nwurstminebot {thread} thread crashed with the following error:\n{e}\n",
+            user=whoami::username(),
+            host=whoami::hostname(),
+            thread=thread_kind,
+            e=e
         ).expect("failed to write to ssmtp stdin");
     }
     child.wait().expect("failed to wait for ssmtp subprocess"); //TODO check exit status
@@ -255,10 +257,22 @@ fn main() -> Result<(), Error> {
         );
         // listen for IPC commands
         {
-            thread::Builder::new().name("wurstminebot IPC".into()).spawn(move || {
+            thread::Builder::new().name(format!("wurstminebot IPC")).spawn(move || {
                 if let Err(e) = listen_ipc(ctx_arc) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_ipc_crash(e);
+                    notify_thread_crash("IPC", e);
+                }
+            })?;
+        }
+        // listen for Twitch chat messages
+        {
+            let data = client.data.read();
+            let conn = data.get::<Database>().expect("missing database connection").lock();
+            let everyone = Person::all(&conn)?;
+            thread::Builder::new().name(format!("wurstminebot Twitch")).spawn(move || {
+                if let Err(e) = twitch::listen_chat(World::default(), everyone) {
+                    eprintln!("{}", e);
+                    notify_thread_crash("Twitch", e);
                 }
             })?;
         }

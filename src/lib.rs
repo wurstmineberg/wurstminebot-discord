@@ -1,6 +1,6 @@
 //! The base library for the Wurstmineberg Discord bot, wurstminebot
 
-#![deny(missing_docs, rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
+#![deny(rust_2018_idioms, unused, unused_import_braces, unused_qualifications, warnings)]
 
 #[macro_use] extern crate diesel;
 
@@ -18,22 +18,24 @@ use {
         path::Path,
         sync::Arc
     },
+    derive_more::From,
     diesel::prelude::*,
-    serde_derive::Deserialize,
+    serde::Deserialize,
     serenity::{
         client::bridge::gateway::ShardManager,
         model::prelude::*,
         prelude::*
     },
-    typemap::Key,
-    wrapped_enum::wrapped_enum
+    typemap::Key
 };
 
 pub mod commands;
 pub mod emoji;
+pub mod minecraft;
 pub mod parse;
 pub mod people;
 pub mod schema;
+pub mod twitch;
 pub mod voice;
 
 /// The address and port where the bot listens for IPC commands.
@@ -47,56 +49,29 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
     Path::new("/opt/wurstmineberg")
 }
 
-/// A collection of possible errors not simply forwarded from other libraries.
-#[derive(Debug)]
-pub enum OtherError {
+/// Errors that may occur in this crate.
+#[derive(Debug, From)]
+pub enum Error {
+    Diesel(diesel::result::Error),
+    DieselConnection(ConnectionError),
+    Envar(env::VarError),
+    Io(io::Error),
+    Minecraft(systemd_minecraft::Error),
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
     MissingContext,
     /// Returned by the user list handler if a user has no join date.
     MissingJoinDate,
     /// The reply to an IPC command did not end in a newline.
     MissingNewline,
+    SerDe(serde_json::Error),
+    Serenity(serenity::Error),
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     Shlex,
+    Twitch(twitchchat::Error),
     /// Returned from `listen_ipc` if an unknown command is received.
-    UnknownCommand(Vec<String>)
-}
-
-impl fmt::Display for OtherError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            OtherError::MissingContext => write!(f, "Serenity context not available before ready event"),
-            OtherError::MissingJoinDate => write!(f, "encountered user without join date"),
-            OtherError::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
-            OtherError::Shlex => write!(f, "failed to parse IPC command line"),
-            OtherError::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args)
-        }
-    }
-}
-
-wrapped_enum! {
-    /// Errors that may occur in this crate.
-    #[derive(Debug)]
-    pub enum Error {
-        #[allow(missing_docs)]
-        Diesel(diesel::result::Error),
-        #[allow(missing_docs)]
-        DieselConnection(ConnectionError),
-        #[allow(missing_docs)]
-        Envar(env::VarError),
-        #[allow(missing_docs)]
-        Io(io::Error),
-        #[allow(missing_docs)]
-        Other(OtherError),
-        #[allow(missing_docs)]
-        SerDe(serde_json::Error),
-        #[allow(missing_docs)]
-        Serenity(serenity::Error),
-        #[allow(missing_docs)]
-        UserIdParse(UserIdParseError),
-        #[allow(missing_docs)]
-        Wrapped((String, Box<Error>))
-    }
+    UnknownCommand(Vec<String>),
+    UserIdParse(UserIdParseError),
+    Wrapped((String, Box<Error>))
 }
 
 /// A helper trait for annotating errors with more informative error messages.
@@ -118,9 +93,15 @@ impl fmt::Display for Error {
             Error::DieselConnection(ref e) => e.fmt(f),
             Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
-            Error::Other(ref e) => e.fmt(f),
+            Error::Minecraft(ref e) => write!(f, "{:?}", e), //TODO implement Display for systemd_minecraft::Error
+            Error::MissingContext => write!(f, "Serenity context not available before ready event"),
+            Error::MissingJoinDate => write!(f, "encountered user without join date"),
+            Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
             Error::SerDe(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
+            Error::Shlex => write!(f, "failed to parse IPC command line"),
+            Error::Twitch(ref e) => e.fmt(f),
+            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UserIdParse(ref e) => e.fmt(f),
             Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
         }
@@ -173,7 +154,7 @@ pub fn send_ipc_command<T: fmt::Display, I: IntoIterator<Item = T>>(cmd: I) -> R
     writeln!(&mut stream, "{}", cmd.into_iter().map(|arg| shlex::quote(&arg.to_string()).into_owned()).collect::<Vec<_>>().join(" "))?;
     let mut buf = String::default();
     BufReader::new(stream).read_line(&mut buf)?;
-    if buf.pop() != Some('\n') { return Err(OtherError::MissingNewline.into()) }
+    if buf.pop() != Some('\n') { return Err(Error::MissingNewline); }
     Ok(buf)
 }
 

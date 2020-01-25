@@ -9,7 +9,6 @@ use {
     serenity::model::prelude::*,
     crate::{
         Error,
-        OtherError,
         schema::people::dsl::*
     }
 };
@@ -31,6 +30,11 @@ pub struct Person {
 }
 
 impl Person {
+    /// Returns an iterator over all the People of Wurstmineberg.
+    pub fn all(conn: &PgConnection) -> QueryResult<Vec<Person>> {
+        people.load(conn)
+    }
+
     /// Constructs a Person from a Discord user ID (“snowflake”). Returns `Ok<None>` if the given Discord user is not a Person or if the given snowflake does not correspond to a Discord user.
     pub fn from_snowflake(conn: &PgConnection, user_id: UserId) -> QueryResult<Option<Person>> {
         people.filter(snowflake.eq(Some(user_id.0 as i64))).first(conn).optional() // PostgreSQL doesn't have unsigned integer types
@@ -72,6 +76,10 @@ impl Person {
         })
     }
 
+    pub fn minecraft_nick(&self) -> Option<&str> {
+        self.data.as_ref()?.pointer("/minecraft/nicks/0")?.as_str()
+    }
+
     /// Deletes the Discord metadata (username, discriminator, nickname, guild join date, and roles) for the Person with the given Discord snowflake, if any.
     ///
     /// This should be called when the Person leaves the guild.
@@ -84,6 +92,10 @@ impl Person {
             .optional()
     }
 
+    pub fn twitch_nick(&self) -> Option<&str> {
+        self.data.as_ref()?.pointer("/twitch/login")?.as_str()
+    }
+
     /// Updates the Discord metadata (username, discriminator, nickname, guild join date, and roles) for the Person with the given Discord snowflake, if any.
     ///
     /// If successful, the updated Person is returned.
@@ -94,7 +106,7 @@ impl Person {
             .set(discorddata.eq(Some(json!({
                 "avatar": user.avatar_url(),
                 "discriminator": user.discriminator,
-                "joined": if let Some(ref join_date) = member.joined_at { join_date } else { return Err(OtherError::MissingJoinDate.into()) },
+                "joined": if let Some(ref join_date) = member.joined_at { join_date } else { return Err(Error::MissingJoinDate) },
                 "nick": &member.nick,
                 "roles": &member.roles,
                 "username": user.name
