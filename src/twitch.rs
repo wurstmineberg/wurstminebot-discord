@@ -29,6 +29,7 @@ pub fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> R
     for event in client {
         match event {
             Event::IrcReady(_) => {
+                println!("Twitch connected");
                 for (twitch_nick, _) in &nick_map {
                     writer.join(twitch_nick)?;
                 }
@@ -44,6 +45,8 @@ pub fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> R
                         },
                         msg.message()
                     )).color(minecraft::Color::Aqua))?;
+                } else {
+                    println!("no Minecraft nick matching Twitch nick {:?}", msg.channel().as_str());
                 }
             }
             Event::Error(e) => { Err(e)?; }
