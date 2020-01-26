@@ -34,6 +34,9 @@ pub fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> R
                     writer.join(twitch_nick)?;
                 }
             }
+            Event::Message(Message::Irc(msg)) => {
+                println!("IRC received {:?}", msg);
+            }
             Event::Message(Message::PrivMsg(msg)) => {
                 if let Some(minecraft_nick) = nick_map.get(msg.channel().as_str()) {
                     minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
