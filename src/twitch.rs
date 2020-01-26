@@ -38,18 +38,23 @@ pub fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> R
                 println!("IRC received {:?}", msg);
             }
             Event::Message(Message::PrivMsg(msg)) => {
-                if let Some(minecraft_nick) = nick_map.get(msg.channel().as_str()) {
-                    minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
-                        "{} {}",
-                        if msg.is_action() {
-                            format!("* twitch:{}", msg.user())
-                        } else {
-                            format!("<twitch:{}>", msg.user())
-                        },
-                        msg.message()
-                    )).color(minecraft::Color::Aqua))?;
+                let channel_name = msg.channel().as_str();
+                if channel_name.starts_with('#') {
+                    if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
+                        minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
+                            "{} {}",
+                            if msg.is_action() {
+                                format!("* twitch:{}", msg.user())
+                            } else {
+                                format!("<twitch:{}>", msg.user())
+                            },
+                            msg.message()
+                        )).color(minecraft::Color::Aqua))?;
+                    } else {
+                        println!("no Minecraft nick matching Twitch nick {:?}", channel_name);
+                    }
                 } else {
-                    println!("no Minecraft nick matching Twitch nick {:?}", msg.channel().as_str());
+                    println!("IRC channel name {:?} doesn't start with \"#\"", channel_name);
                 }
             }
             Event::Error(e) => { return Err(e.into()); }
