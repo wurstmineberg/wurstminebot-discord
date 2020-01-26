@@ -68,6 +68,9 @@ pub enum Error {
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     Shlex,
     Twitch(twitchchat::Error),
+    TwitchClientTerminated,
+    #[from(ignore)]
+    UnexpectedTwitchEvent(twitchchat::Event),
     /// Returned from `listen_ipc` if an unknown command is received.
     UnknownCommand(Vec<String>),
     UserIdParse(UserIdParseError),
@@ -101,6 +104,8 @@ impl fmt::Display for Error {
             Error::Serenity(ref e) => e.fmt(f),
             Error::Shlex => write!(f, "failed to parse IPC command line"),
             Error::Twitch(ref e) => e.fmt(f),
+            Error::TwitchClientTerminated => write!(f, "Twitch chat client unexpectedly returned from event loop"),
+            Error::UnexpectedTwitchEvent(ref event) => write!(f, "Unexpected Twitch chat event: {:?}", event),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UserIdParse(ref e) => e.fmt(f),
             Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)

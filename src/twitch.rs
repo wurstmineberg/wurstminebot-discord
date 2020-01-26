@@ -49,9 +49,9 @@ pub fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> R
                     println!("no Minecraft nick matching Twitch nick {:?}", msg.channel().as_str());
                 }
             }
-            Event::Error(e) => { Err(e)?; }
-            _ => unreachable!()
+            Event::Error(e) => { return Err(e.into()); }
+            event => { return Err(Error::UnexpectedTwitchEvent(event)); }
         }
     }
-    unreachable!();
+    Err(Error::TwitchClientTerminated)
 }
