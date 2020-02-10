@@ -202,7 +202,7 @@ fn notify_thread_crash(thread_kind: &str, e: Error) {
         let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
         write!(
             stdin,
-            "To: root@wurstmineberg.de\nFrom: {user}@{host}\nSubject: wurstminebot {thread} thread crashed\n\nwurstminebot {thread} thread crashed with the following error:\n{e}\n",
+            "To: root@wurstmineberg.de\nFrom: {user}@{host}\nSubject: wurstminebot {thread} thread crashed\n\nwurstminebot {thread} thread crashed with the following error:\n{e}\n{e:?}",
             user=whoami::username(),
             host=whoami::hostname(),
             thread=thread_kind,
