@@ -48,6 +48,8 @@ use {
     }
 };
 
+const DEV: ChannelId = ChannelId(506905544901001228);
+
 #[derive(Default)]
 struct Handler(Arc<Mutex<Option<Context>>>);
 
@@ -192,24 +194,21 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TOD
     unreachable!();
 }
 
-fn notify_thread_crash(thread_kind: &str, e: Error) {
-    let mut child = Command::new("ssmtp")
-        .arg("root@wurstmineberg.de")
-        .stdin(Stdio::piped())
-        .spawn()
-        .expect("failed to spawn ssmtp");
-    {
-        let stdin = child.stdin.as_mut().expect("failed to open ssmtp stdin");
-        write!(
-            stdin,
-            "To: root@wurstmineberg.de\nFrom: {user}@{host}\nSubject: wurstminebot {thread} thread crashed\n\nwurstminebot {thread} thread crashed with the following error:\n{e}\n{e:?}",
-            user=whoami::username(),
-            host=whoami::hostname(),
-            thread=thread_kind,
-            e=e
-        ).expect("failed to write to ssmtp stdin");
+fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
+    if ctx.as_ref().and_then(|ctx| DEV.say(ctx, format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e)).ok()).is_none() {
+        let mut child = Command::new("mail")
+            .arg("-s")
+            .arg(format!("wurstminebot {} thread crashed", thread_kind))
+            .arg("root@wurstmineberg.de")
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("failed to spawn mail");
+        {
+            let stdin = child.stdin.as_mut().expect("failed to open mail stdin");
+            write!(stdin, "wurstminebot {} thread crashed with the following error:\n{}\n{:?}\n", thread_kind, e, e).expect("failed to write to mail stdin");
+        }
+        child.wait().expect("failed to wait for mail subprocess"); //TODO check exit status
     }
-    child.wait().expect("failed to wait for ssmtp subprocess"); //TODO check exit status
 }
 
 fn main() -> Result<(), Error> {
@@ -221,7 +220,8 @@ fn main() -> Result<(), Error> {
         // read config
         let config = Config::new()?;
         let handler = Handler::default();
-        let ctx_arc = handler.0.clone();
+        let ctx_arc_ipc = handler.0.clone();
+        let ctx_arc_twitch = handler.0.clone();
         let mut client = Client::new(config.token(), handler)?;
         let owners = iter::once(client.cache_and_http.http.get_current_application_info()?.owner.id).collect();
         {
@@ -258,9 +258,9 @@ fn main() -> Result<(), Error> {
         // listen for IPC commands
         {
             thread::Builder::new().name(format!("wurstminebot IPC")).spawn(move || {
-                if let Err(e) = listen_ipc(ctx_arc) { //TODO remove `if` after changing from `()` to `!`
+                if let Err(e) = listen_ipc(ctx_arc_ipc.clone()) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash("IPC", e);
+                    notify_thread_crash(&ctx_arc_ipc.lock(), "IPC", e);
                 }
             })?;
         }
@@ -272,7 +272,7 @@ fn main() -> Result<(), Error> {
             thread::Builder::new().name(format!("wurstminebot Twitch")).spawn(move || {
                 if let Err(e) = twitch::listen_chat(World::default(), everyone) {
                     eprintln!("{}", e);
-                    notify_thread_crash("Twitch", e);
+                    notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
                 }
             })?;
         }
