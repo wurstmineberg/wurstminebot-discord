@@ -96,7 +96,7 @@ impl fmt::Display for Error {
             Error::DieselConnection(ref e) => e.fmt(f),
             Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
-            Error::Minecraft(ref e) => write!(f, "{:?}", e), //TODO implement Display for systemd_minecraft::Error
+            Error::Minecraft(ref e) => e.fmt(f),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
