@@ -6,6 +6,7 @@
 
 use {
     std::{
+        collections::BTreeSet,
         env,
         fmt,
         fs::File,
@@ -122,7 +123,9 @@ pub struct Config {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ConfigWurstminebot {
-    bot_token: String
+    bot_token: String,
+    #[serde(default)]
+    self_assignable_roles: BTreeSet<RoleId>
 }
 
 impl Config {
@@ -135,6 +138,10 @@ impl Config {
     pub fn token(&self) -> &str {
         &self.wurstminebot.bot_token
     }
+}
+
+impl Key for Config {
+    type Value = Config;
 }
 
 /// `typemap` key for the serenity shard manager.

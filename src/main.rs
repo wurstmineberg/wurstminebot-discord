@@ -226,6 +226,7 @@ fn main() -> Result<(), Error> {
         let owners = iter::once(client.cache_and_http.http.get_current_application_info()?.owner.id).collect();
         {
             let mut data = client.data.write();
+            data.insert::<Config>(config);
             data.insert::<Database>(Mutex::new(PgConnection::establish("postgres:///wurstmineberg")?));
             data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
             data.insert::<VoiceStates>(BTreeMap::default());

@@ -18,6 +18,7 @@ use {
         utils::MessageBuilder
     },
     crate::{
+        Config,
         Database,
         emoji,
         parse,
@@ -26,6 +27,64 @@ use {
 };
 
 const GENERAL: ChannelId = ChannelId(88318761228054528);
+
+#[command]
+pub fn iam(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let mut sender = if let Some(sender) = msg.member(&ctx) {
+        sender
+    } else {
+        //TODO get from `WURSTMINEBERG` guild instead of erroring
+        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry")?;
+        return Ok(());
+    };
+    let mut cmd = args.message();
+    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx)) {
+        role
+    } else {
+        msg.reply(ctx, "no such role")?;
+        return Ok(());
+    };
+    if !ctx.data.read().get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
+        msg.reply(ctx, "this role is not self-assignable")?;
+        return Ok(());
+    }
+    if sender.roles.contains(&role) {
+        msg.reply(ctx, "you already have this role")?;
+        return Ok(());
+    }
+    sender.add_role(&ctx, role)?;
+    msg.reply(ctx, "role added")?;
+    Ok(())
+}
+
+#[command]
+pub fn iamn(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let mut sender = if let Some(sender) = msg.member(&ctx) {
+        sender
+    } else {
+        //TODO get from `WURSTMINEBERG` guild instead of erroring
+        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry")?;
+        return Ok(());
+    };
+    let mut cmd = args.message();
+    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx)) {
+        role
+    } else {
+        msg.reply(ctx, "no such role")?;
+        return Ok(());
+    };
+    if !ctx.data.read().get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
+        msg.reply(ctx, "this role is not self-assignable")?;
+        return Ok(());
+    }
+    if !sender.roles.contains(&role) {
+        msg.reply(ctx, "you already don't have this role")?;
+        return Ok(());
+    }
+    sender.remove_role(&ctx, role)?;
+    msg.reply(ctx, "role removed")?;
+    Ok(())
+}
 
 #[command]
 pub fn ping(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
@@ -78,6 +137,8 @@ fn veto(ctx: &mut Context, _: &Message, args: Args) -> CommandResult {
 
 #[group]
 #[commands(
+    iam,
+    iamn,
     ping,
     poll,
     quit,

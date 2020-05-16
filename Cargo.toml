@@ -18,6 +18,7 @@ bench = false
 [dependencies]
 chrono = "0.4"
 derive_more = "0.99"
+itertools = "0.9"
 lazy_static = "1"
 rand = "0.7"
 regex = "1"

@@ -1,10 +1,17 @@
 #![allow(missing_docs)] //TODO
 
 use {
-    std::str::FromStr,
+    std::{
+        str::FromStr,
+        sync::Arc
+    },
     diesel::prelude::*,
+    itertools::Itertools,
     regex::Regex,
-    serenity::model::prelude::*,
+    serenity::{
+        model::prelude::*,
+        prelude::*
+    },
     crate::people::Person
 };
 
@@ -46,6 +53,47 @@ pub fn eat_person(cmd: &mut &str, conn: &PgConnection) -> QueryResult<Option<Per
         }
     }
     Ok(None)
+}
+
+/// Returns a role given its mention or name, but only if it's the entire command.
+pub fn eat_role_full(cmd: &mut &str, guild: Option<Arc<RwLock<Guild>>>) -> Option<RoleId> {
+    let original_cmd = *cmd;
+    if let Some(role_id) = eat_role_mention(cmd) {
+        if cmd.is_empty() {
+            Some(role_id)
+        } else {
+            *cmd = original_cmd;
+            None
+        }
+    } else if let Some(guild) = guild {
+        guild.read()
+            .roles
+            .iter()
+            .filter_map(|(&role_id, role)| if role.name == *cmd { Some(role_id) } else { None })
+            .exactly_one()
+            .ok()
+    } else {
+        None
+    }
+}
+
+pub fn eat_role_mention(cmd: &mut &str) -> Option<RoleId> {
+    if !cmd.starts_with('<') || !cmd.contains('>') {
+        return None;
+    }
+    let mut maybe_mention = String::default();
+    let mut chars = cmd.chars();
+    while let Some(c) = chars.next() {
+        maybe_mention.push(c);
+        if c == '>' {
+            if let Ok(id) = RoleId::from_str(&maybe_mention) {
+                eat_word(cmd);
+                return Some(id);
+            }
+            return None;
+        }
+    }
+    None
 }
 
 pub fn eat_user_mention(cmd: &mut &str) -> Option<UserId> {
