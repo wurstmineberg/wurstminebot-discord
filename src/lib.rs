@@ -57,6 +57,8 @@ pub enum Error {
     DieselConnection(ConnectionError),
     Envar(env::VarError),
     Io(io::Error),
+    #[from(ignore)]
+    MalformedTwitchChannelName(String),
     Minecraft(systemd_minecraft::Error),
     /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
     MissingContext,
@@ -69,11 +71,13 @@ pub enum Error {
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     Shlex,
     Twitch(twitchchat::Error),
-    TwitchClientTerminated,
     #[from(ignore)]
-    UnexpectedTwitchEvent(twitchchat::Event),
+    TwitchClientTerminated(twitchchat::Status),
+    #[from(ignore)]
     /// Returned from `listen_ipc` if an unknown command is received.
     UnknownCommand(Vec<String>),
+    #[from(ignore)]
+    UnknownTwitchNick(String),
     UserIdParse(UserIdParseError),
     Wrapped((String, Box<Error>))
 }
@@ -97,6 +101,7 @@ impl fmt::Display for Error {
             Error::DieselConnection(ref e) => e.fmt(f),
             Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
+            Error::MalformedTwitchChannelName(ref channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
             Error::Minecraft(ref e) => e.fmt(f),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
@@ -105,9 +110,9 @@ impl fmt::Display for Error {
             Error::Serenity(ref e) => e.fmt(f),
             Error::Shlex => write!(f, "failed to parse IPC command line"),
             Error::Twitch(ref e) => e.fmt(f),
-            Error::TwitchClientTerminated => write!(f, "Twitch chat client unexpectedly returned from event loop"),
-            Error::UnexpectedTwitchEvent(ref event) => write!(f, "Unexpected Twitch chat event: {:?}", event),
+            Error::TwitchClientTerminated(status) => write!(f, "Twitch chat client unexpectedly returned from event loop with status {:?}", status),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
+            Error::UnknownTwitchNick(ref channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
             Error::UserIdParse(ref e) => e.fmt(f),
             Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
         }

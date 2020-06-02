@@ -3,11 +3,13 @@ use {
         collections::HashMap,
         convert::Infallible as Never
     },
+    futures::stream::StreamExt as _,
     systemd_minecraft::World,
     twitchchat::{
-        Event,
-        Message,
-        commands
+        Dispatcher,
+        RateLimit,
+        Runner,
+        events
     },
     crate::{
         Error,
@@ -19,47 +21,35 @@ use {
     }
 };
 
-pub fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> Result<Never, Error> {
+pub async fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> Result<Never, Error> {
     let nick_map = members.into_iter()
         .filter_map(|member| Some((member.twitch_nick()?.to_string(), member.minecraft_nick()?.to_string())))
         .collect::<HashMap<_, _>>();
     let (nick, token) = twitchchat::ANONYMOUS_LOGIN;
-    let client = twitchchat::connect_easy(nick, token)?.filter::<commands::PrivMsg>();
-    let writer = client.writer();
-    for event in client {
-        match event {
-            Event::IrcReady(_) => {
-                println!("Twitch connected");
-                for (twitch_nick, _) in &nick_map {
-                    writer.join(twitch_nick)?;
-                }
+    let dispatcher = Dispatcher::new();
+    let (runner, mut control) = Runner::new(dispatcher.clone(), RateLimit::default());
+    let conn = twitchchat::connect_easy_tls(nick, token).await?;
+    let done = runner.run(conn);
+    let mut events = dispatcher.subscribe::<events::Privmsg>();
+    dispatcher.wait_for::<events::IrcReady>().await?;
+    for (twitch_nick, _) in &nick_map {
+        control.writer().join(twitch_nick).await?; //TODO dynamically join/leave channels as nick map is updated
+    }
+    while let Some(msg) = events.next().await {
+        let channel_name = &msg.channel;
+        if channel_name.starts_with('#') {
+            if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
+                minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
+                    "{} {}",
+                    format!("<twitch:{}>", msg.name), //if msg.is_action() { format!("* twitch:{}", msg.name) } else { format!("<twitch:{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
+                    msg.data
+                )).color(minecraft::Color::Aqua))?;
+            } else {
+                return Err(Error::UnknownTwitchNick(channel_name.to_string()));
             }
-            Event::Message(Message::Irc(msg)) => {
-                println!("IRC received {:?}", msg);
-            }
-            Event::Message(Message::PrivMsg(msg)) => {
-                let channel_name = msg.channel().as_str();
-                if channel_name.starts_with('#') {
-                    if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
-                        minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
-                            "{} {}",
-                            if msg.is_action() {
-                                format!("* twitch:{}", msg.user())
-                            } else {
-                                format!("<twitch:{}>", msg.user())
-                            },
-                            msg.message()
-                        )).color(minecraft::Color::Aqua))?;
-                    } else {
-                        println!("no Minecraft nick matching Twitch nick {:?}", channel_name);
-                    }
-                } else {
-                    println!("IRC channel name {:?} doesn't start with \"#\"", channel_name);
-                }
-            }
-            Event::Error(e) => { return Err(e.into()); }
-            event => { return Err(Error::UnexpectedTwitchEvent(event)); }
+        } else {
+            return Err(Error::MalformedTwitchChannelName(channel_name.to_string()));
         }
     }
-    Err(Error::TwitchClientTerminated)
+    Err(Error::TwitchClientTerminated(done.await?))
 }

@@ -211,7 +211,8 @@ fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let mut args = env::args().peekable();
     let _ = args.next(); // ignore executable name
     if args.peek().is_some() {
@@ -257,6 +258,7 @@ fn main() -> Result<(), Error> {
             .group(&commands::GROUP)
         );
         // listen for IPC commands
+        //TODO rewrite using tokio
         {
             thread::Builder::new().name(format!("wurstminebot IPC")).spawn(move || {
                 if let Err(e) = listen_ipc(ctx_arc_ipc.clone()) { //TODO remove `if` after changing from `()` to `!`
@@ -270,12 +272,12 @@ fn main() -> Result<(), Error> {
             let data = client.data.read();
             let conn = data.get::<Database>().expect("missing database connection").lock();
             let everyone = Person::all(&conn)?;
-            thread::Builder::new().name(format!("wurstminebot Twitch")).spawn(move || {
-                if let Err(e) = twitch::listen_chat(World::default(), everyone) {
+            tokio::spawn(async move {
+                if let Err(e) = twitch::listen_chat(World::default(), everyone).await {
                     eprintln!("{}", e);
                     notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
                 }
-            })?;
+            });
         }
         // connect to Discord
         client.start_autosharded()?;

@@ -18,6 +18,7 @@ bench = false
 [dependencies]
 chrono = "0.4"
 derive_more = "0.99"
+futures = "0.3"
 itertools = "0.9"
 lazy_static = "1"
 rand = "0.7"
@@ -25,9 +26,8 @@ regex = "1"
 serde_json = "1"
 serenity = "0.8"
 shlex = "0.1"
-twitchchat = "0.7"
 typemap = "0.3"
-whoami = "0.7"
+whoami = "0.8"
 
 [dependencies.diesel]
 version = "1"
@@ -41,3 +41,12 @@ features = ["derive"]
 git = "https://github.com/wurstmineberg/systemd-minecraft"
 branch = "riir"
 package = "minecraft"
+
+[dependencies.tokio]
+version = "0.2"
+features = ["macros", "rt-threaded"]
+
+[dependencies.twitchchat]
+version = "0.10"
+default-features = false
+features = ["async", "tokio_rustls"]
