@@ -38,6 +38,10 @@ use {
         ShardManagerContainer,
         WURSTMINEBERG,
         commands,
+        minecraft::{
+            self,
+            Chat
+        },
         people::Person,
         shut_down,
         twitch,
@@ -127,6 +131,17 @@ impl EventHandler for Handler {
         let conn = data.get::<Database>().expect("missing database connection").lock();
         for member in members.values() {
             Person::update_discord_data(&conn, member).expect("failed to update data for chunk of guild members in database");
+        }
+    }
+
+    fn message(&self, ctx: Context, msg: Message) {
+        if let Some((world_name, _)) = ctx.data.read().get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
+            minecraft::tellraw(&World::new(world_name), "@a", Chat::from(format!(
+                "[Discord:#{}] <{}> {}",
+                if let Some(Channel::Guild(chan)) = msg.channel(&ctx) { chan.read().name.clone() } else { format!("?") },
+                msg.author.name, //TODO replace with nickname, include discriminator if nickname is ambiguous
+                msg.content
+            )).color(minecraft::Color::Aqua)).expect("chatsync failed");
         }
     }
 

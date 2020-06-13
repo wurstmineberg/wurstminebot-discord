@@ -40,8 +40,8 @@ pub async fn listen_chat(world: World, members: impl IntoIterator<Item = Person>
         if channel_name.starts_with('#') {
             if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
                 minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
-                    "{} {}",
-                    format!("<twitch:{}>", msg.name), //if msg.is_action() { format!("* twitch:{}", msg.name) } else { format!("<twitch:{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
+                    "[Twitch] {} {}",
+                    format!("<{}>", msg.name), //if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
                     msg.data
                 )).color(minecraft::Color::Aqua))?;
             } else {

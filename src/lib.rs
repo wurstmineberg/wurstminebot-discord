@@ -6,7 +6,10 @@
 
 use {
     std::{
-        collections::BTreeSet,
+        collections::{
+            BTreeMap,
+            BTreeSet
+        },
         env,
         fmt,
         fs::File,
@@ -122,15 +125,17 @@ impl fmt::Display for Error {
 /// A parsed configuration file for wurstminebot.
 #[derive(Deserialize)]
 pub struct Config {
-    wurstminebot: ConfigWurstminebot
+    pub wurstminebot: ConfigWurstminebot
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ConfigWurstminebot {
+pub struct ConfigWurstminebot {
     bot_token: String,
     #[serde(default)]
-    self_assignable_roles: BTreeSet<RoleId>
+    self_assignable_roles: BTreeSet<RoleId>,
+    #[serde(default)]
+    pub world_channels: BTreeMap<String, ChannelId>
 }
 
 impl Config {
