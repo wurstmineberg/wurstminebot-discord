@@ -21,7 +21,7 @@ use {
     }
 };
 
-pub async fn listen_chat(world: World, members: impl IntoIterator<Item = Person>) -> Result<Never, Error> {
+pub async fn listen_chat(members: impl IntoIterator<Item = Person>) -> Result<Never, Error> {
     let nick_map = members.into_iter()
         .filter_map(|member| Some((member.twitch_nick()?.to_string(), member.minecraft_nick()?.to_string())))
         .collect::<HashMap<_, _>>();
@@ -39,11 +39,13 @@ pub async fn listen_chat(world: World, members: impl IntoIterator<Item = Person>
         let channel_name = &msg.channel;
         if channel_name.starts_with('#') {
             if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
-                minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
-                    "[Twitch] {} {}",
-                    format!("<{}>", msg.name), //if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
-                    msg.data
-                )).color(minecraft::Color::Aqua))?;
+                for world in World::all_running()? {
+                    minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
+                        "[Twitch] {} {}",
+                        format!("<{}>", msg.name), //if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
+                        msg.data
+                    )).color(minecraft::Color::Aqua))?;
+                }
             } else {
                 return Err(Error::UnknownTwitchNick(channel_name.to_string()));
             }

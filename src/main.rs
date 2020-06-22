@@ -140,7 +140,7 @@ impl EventHandler for Handler {
                 "[Discord:#{}] <{}> {}",
                 if let Some(Channel::Guild(chan)) = msg.channel(&ctx) { chan.read().name.clone() } else { format!("?") },
                 msg.author.name, //TODO replace with nickname, include discriminator if nickname is ambiguous
-                msg.content
+                msg.content //TODO format mentions and emoji
             )).color(minecraft::Color::Aqua)).expect("chatsync failed");
         }
     }
@@ -288,7 +288,7 @@ async fn main() -> Result<(), Error> {
             let conn = data.get::<Database>().expect("missing database connection").lock();
             let everyone = Person::all(&conn)?;
             tokio::spawn(async move {
-                if let Err(e) = twitch::listen_chat(World::default(), everyone).await {
+                if let Err(e) = twitch::listen_chat(everyone).await {
                     eprintln!("{}", e);
                     notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
                 }
