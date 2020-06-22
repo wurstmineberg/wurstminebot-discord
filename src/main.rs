@@ -84,6 +84,7 @@ impl EventHandler for Handler {
     }
 
     fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+        println!("Connected to {}", guild.name);
         let mut chan_map = <VoiceStates as Key>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
