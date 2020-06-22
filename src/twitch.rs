@@ -30,28 +30,34 @@ pub async fn listen_chat(members: impl IntoIterator<Item = Person>) -> Result<Ne
     let (runner, mut control) = Runner::new(dispatcher.clone(), RateLimit::default());
     let conn = twitchchat::connect_easy_tls(nick, token).await?;
     let done = runner.run(conn);
-    let mut events = dispatcher.subscribe::<events::Privmsg>();
-    dispatcher.wait_for::<events::IrcReady>().await?;
-    for (twitch_nick, _) in &nick_map {
-        control.writer().join(twitch_nick).await?; //TODO dynamically join/leave channels as nick map is updated
-    }
-    while let Some(msg) = events.next().await {
-        let channel_name = &msg.channel;
-        if channel_name.starts_with('#') {
-            if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
-                for world in World::all_running()? {
-                    minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
-                        "[Twitch] {} {}",
-                        format!("<{}>", msg.name), //if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
-                        msg.data
-                    )).color(minecraft::Color::Aqua))?;
+    let handler = tokio::spawn(async move {
+        let mut events = dispatcher.subscribe::<events::Privmsg>();
+        dispatcher.wait_for::<events::IrcReady>().await?;
+        for (twitch_nick, _) in &nick_map {
+            control.writer().join(twitch_nick).await?; //TODO dynamically join/leave channels as nick map is updated
+        }
+        while let Some(msg) = events.next().await {
+            let channel_name = &msg.channel;
+            if channel_name.starts_with('#') {
+                if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
+                    for world in World::all_running()? {
+                        minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
+                            "[Twitch] {} {}",
+                            format!("<{}>", msg.name), //if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
+                            msg.data
+                        )).color(minecraft::Color::Aqua))?;
+                    }
+                } else {
+                    return Err(Error::UnknownTwitchNick(channel_name.to_string()));
                 }
             } else {
-                return Err(Error::UnknownTwitchNick(channel_name.to_string()));
+                return Err(Error::MalformedTwitchChannelName(channel_name.to_string()));
             }
-        } else {
-            return Err(Error::MalformedTwitchChannelName(channel_name.to_string()));
         }
+        Err(Error::TwitchEventStreamEnded)
+    });
+    tokio::select! {
+        join_result = handler => join_result?,
+        status = done => Err(Error::TwitchClientTerminated(status?))
     }
-    Err(Error::TwitchClientTerminated(done.await?))
 }

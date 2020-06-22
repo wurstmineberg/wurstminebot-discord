@@ -60,6 +60,7 @@ pub enum Error {
     DieselConnection(ConnectionError),
     Envar(env::VarError),
     Io(io::Error),
+    Join(tokio::task::JoinError),
     #[from(ignore)]
     MalformedTwitchChannelName(String),
     Minecraft(systemd_minecraft::Error),
@@ -76,6 +77,7 @@ pub enum Error {
     Twitch(twitchchat::Error),
     #[from(ignore)]
     TwitchClientTerminated(twitchchat::Status),
+    TwitchEventStreamEnded,
     #[from(ignore)]
     /// Returned from `listen_ipc` if an unknown command is received.
     UnknownCommand(Vec<String>),
@@ -104,6 +106,7 @@ impl fmt::Display for Error {
             Error::DieselConnection(ref e) => e.fmt(f),
             Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
+            Error::Join(ref e) => e.fmt(f),
             Error::MalformedTwitchChannelName(ref channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
             Error::Minecraft(ref e) => e.fmt(f),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
@@ -114,6 +117,7 @@ impl fmt::Display for Error {
             Error::Shlex => write!(f, "failed to parse IPC command line"),
             Error::Twitch(ref e) => e.fmt(f),
             Error::TwitchClientTerminated(status) => write!(f, "Twitch chat client unexpectedly returned from event loop with status {:?}", status),
+            Error::TwitchEventStreamEnded => write!(f, "Twitch chat event stream ended unexpectedly"),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UnknownTwitchNick(ref channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
             Error::UserIdParse(ref e) => e.fmt(f),
