@@ -35,11 +35,13 @@ use {
 
 pub mod commands;
 pub mod emoji;
+pub mod log;
 pub mod minecraft;
 pub mod parse;
 pub mod people;
 pub mod schema;
 pub mod twitch;
+mod util;
 pub mod voice;
 
 /// The address and port where the bot listens for IPC commands.
@@ -61,6 +63,7 @@ pub enum Error {
     Envar(env::VarError),
     Io(io::Error),
     Join(tokio::task::JoinError),
+    Log(log::Error),
     #[from(ignore)]
     MalformedTwitchChannelName(String),
     Minecraft(systemd_minecraft::Error),
@@ -107,6 +110,7 @@ impl fmt::Display for Error {
             Error::Envar(ref e) => e.fmt(f),
             Error::Io(ref e) => e.fmt(f),
             Error::Join(ref e) => e.fmt(f),
+            Error::Log(ref e) => e.fmt(f),
             Error::MalformedTwitchChannelName(ref channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
             Error::Minecraft(ref e) => e.fmt(f),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),

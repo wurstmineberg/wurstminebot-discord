@@ -38,6 +38,7 @@ use {
         ShardManagerContainer,
         WURSTMINEBERG,
         commands,
+        log,
         minecraft::{
             self,
             Chat
@@ -238,6 +239,7 @@ async fn main() -> Result<(), Error> {
         let config = Config::new()?;
         let handler = Handler::default();
         let ctx_arc_ipc = handler.0.clone();
+        let ctx_arc_log = handler.0.clone();
         let ctx_arc_twitch = handler.0.clone();
         let mut client = Client::new(config.token(), handler)?;
         let owners = iter::once(client.cache_and_http.http.get_current_application_info()?.owner.id).collect();
@@ -282,6 +284,15 @@ async fn main() -> Result<(), Error> {
                     notify_thread_crash(&ctx_arc_ipc.lock(), "IPC", e);
                 }
             })?;
+        }
+        // follow the Minecraft log
+        {
+            tokio::spawn(async move {
+                if let Err(e) = log::handle(ctx_arc_log.clone()).await {
+                    eprintln!("{}", e);
+                    notify_thread_crash(&ctx_arc_log.lock(), "log", e.into());
+                }
+            });
         }
         // listen for Twitch chat messages
         {
