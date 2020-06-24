@@ -137,6 +137,7 @@ impl EventHandler for Handler {
     }
 
     fn message(&self, ctx: Context, msg: Message) {
+        if msg.author.bot { return; } // ignore bots to prevent message loops
         if let Some((world_name, _)) = ctx.data.read().get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
             minecraft::tellraw(&World::new(world_name), "@a", Chat::from(format!(
                 "[Discord:#{}] <{}> {}",
