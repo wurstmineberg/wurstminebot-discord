@@ -135,7 +135,7 @@ impl FromStr for RegularLine {
             RegularLine::Chat {
                 sender: captures[1].to_owned(),
                 msg: captures[2].to_owned(),
-                is_action: false
+                is_action: true
             }
         } else {
             RegularLine::Unknown(s.to_owned())
