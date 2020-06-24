@@ -1,5 +1,6 @@
 use {
     std::{
+        collections::HashMap,
         convert::Infallible as Never,
         fmt,
         io,
@@ -36,12 +37,14 @@ use {
         prelude::*,
         task::JoinError
     },
+    uuid::Uuid,
     crate::util::ResultNeverExt as _
 };
 
 lazy_static! {
     static ref CHAT_LINE: Regex = Regex::new("^<([A-Za-z0-9_]{3,16})> (.+)$").expect("failed to parse chat line regex");
     static ref CHAT_ACTION_LINE: Regex = Regex::new("^\\* ([A-Za-z0-9_]{3,16}) (.+)$").expect("failed to parse chat action line regex");
+    static ref PLAYER_UUID_LINE: Regex = Regex::new("^UUID of player ([A-Za-z0-9_]{3,16}) is ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$").expect("failed to parse player UUID regex");
     static ref REGULAR_LINE: Regex = Regex::new("^([0-9]+-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) \\[([^]]+)/(INFO|WARN|ERROR)\\]: (.+)$").expect("failed to parse regular line regex");
 }
 
@@ -118,6 +121,10 @@ enum RegularLine {
         msg: String,
         is_action: bool
     },
+    PlayerUuid {
+        nickname: String,
+        uuid: Uuid
+    },
     Unknown(String)
 }
 
@@ -136,6 +143,11 @@ impl FromStr for RegularLine {
                 sender: captures[1].to_owned(),
                 msg: captures[2].to_owned(),
                 is_action: true
+            }
+        } else if let Some(captures) = PLAYER_UUID_LINE.captures(s) {
+            RegularLine::PlayerUuid {
+                nickname: captures[1].to_owned(),
+                uuid: captures[2].parse().expect("UUID that matches regex should parse")
             }
         } else {
             RegularLine::Unknown(s.to_owned())
@@ -202,6 +214,7 @@ pub async fn handle(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, Error
 async fn handle_world(ctx_arc: Arc<Mutex<Option<Context>>>, world: World) -> Result<Never, Error> {
     let follower = follow(&world);
     pin_mut!(follower);
+    let mut player_uuids = HashMap::new();
     while let Some(line) = follower.try_next().await? {
         match line {
             Line::Regular { content, .. } => match content {
@@ -209,9 +222,11 @@ async fn handle_world(ctx_arc: Arc<Mutex<Option<Context>>>, world: World) -> Res
                     if let Some(ctx) = ctx_arc.lock().as_ref() {
                         if let Some(chan_id) = ctx.data.read().get::<crate::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
                             if let Ok(webhook) = chan_id.webhooks(ctx)?.into_iter().exactly_one() {
-                                webhook.execute(ctx, false, |w| w
-                                    //TODO set avatar_url to player head
-                                    .content(if is_action {
+                                webhook.execute(ctx, false, |w| {
+                                    if let Some(uuid) = player_uuids.get(&sender) {
+                                        w.avatar_url(format!("https://crafatar.com/renders/head/{}", uuid));
+                                    }
+                                    w.content(if is_action {
                                         let mut builder = MessageBuilder::default();
                                         builder.push_italic_safe(msg);
                                         builder
@@ -221,10 +236,13 @@ async fn handle_world(ctx_arc: Arc<Mutex<Option<Context>>>, world: World) -> Res
                                         builder
                                     })
                                     .username(sender) //TODO use Discord nickname instead of Minecraft nickname?
-                                )?;
+                                })?;
                             }
                         }
                     }
+                }
+                RegularLine::PlayerUuid { nickname, uuid } => {
+                    player_uuids.insert(nickname, uuid);
                 }
                 RegularLine::Unknown(_) => {} // ignore all other lines for now
             },
