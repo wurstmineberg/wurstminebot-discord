@@ -48,6 +48,11 @@ pub async fn listen_chat(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, 
             for (twitch_nick, _) in &nick_map {
                 control.writer().join(twitch_nick).await?; //TODO dynamically join/leave channels as nick map is updated
             }
+            for world in World::all_running()? {
+                for (_, minecraft_nick) in &nick_map {
+                    minecraft::tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::Color::Aqua))?;
+                }
+            }
             while let Some(msg) = events.next().await {
                 let channel_name = &msg.channel;
                 if channel_name.starts_with('#') {
