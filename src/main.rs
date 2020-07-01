@@ -297,11 +297,8 @@ async fn main() -> Result<(), Error> {
         }
         // listen for Twitch chat messages
         {
-            let data = client.data.read();
-            let conn = data.get::<Database>().expect("missing database connection").lock();
-            let everyone = Person::all(&conn)?;
             tokio::spawn(async move {
-                if let Err(e) = twitch::listen_chat(everyone).await {
+                if let Err(e) = twitch::listen_chat(ctx_arc_twitch.clone()).await {
                     eprintln!("{}", e);
                     notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
                 }
