@@ -78,8 +78,6 @@ pub enum Error {
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
     Shlex,
     Twitch(twitchchat::Error),
-    #[from(ignore)]
-    TwitchClientTerminated(twitchchat::Status),
     TwitchEventStreamEnded,
     #[from(ignore)]
     /// Returned from `listen_ipc` if an unknown command is received.
@@ -120,7 +118,6 @@ impl fmt::Display for Error {
             Error::Serenity(ref e) => e.fmt(f),
             Error::Shlex => write!(f, "failed to parse IPC command line"),
             Error::Twitch(ref e) => e.fmt(f),
-            Error::TwitchClientTerminated(status) => write!(f, "Twitch chat client unexpectedly returned from event loop with status {:?}", status),
             Error::TwitchEventStreamEnded => write!(f, "Twitch chat event stream ended unexpectedly"),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UnknownTwitchNick(ref channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),

@@ -8,10 +8,9 @@ use {
     serenity::prelude::*,
     systemd_minecraft::World,
     twitchchat::{
+        Connector,
         Dispatcher,
-        RateLimit,
         Runner,
-        Status,
         events
     },
     crate::{
@@ -39,9 +38,9 @@ pub async fn listen_chat(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, 
         };
         let (nick, token) = twitchchat::ANONYMOUS_LOGIN;
         let dispatcher = Dispatcher::new();
-        let (runner, mut control) = Runner::new(dispatcher.clone(), RateLimit::default());
-        let conn = twitchchat::connect_easy_tls(nick, token).await?;
-        let done = runner.run(conn);
+        let (mut runner, mut control) = Runner::new(dispatcher.clone());
+        let conn = Connector::new(move || twitchchat::rustls::connect_easy(nick, token));
+        let done = runner.run_to_completion(conn); //TODO use run_with_retry instead?
         let handler = tokio::spawn(async move {
             let mut events = dispatcher.subscribe::<events::Privmsg>();
             dispatcher.wait_for::<events::IrcReady>().await?;
@@ -60,7 +59,7 @@ pub async fn listen_chat(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, 
                         for world in World::all_running()? {
                             minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
                                 "[Twitch] {} {}",
-                                format!("<{}>", msg.name), //if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) }, //TODO https://github.com/museun/twitchchat/issues/120
+                                if msg.is_action() { format!("* {}", msg.name) } else { format!("<{}>", msg.name) },
                                 msg.data
                             )).color(minecraft::Color::Aqua))?;
                         }
@@ -75,9 +74,9 @@ pub async fn listen_chat(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, 
         });
         break tokio::select! {
             join_result = handler => join_result?,
-            status = done => match status? {
-                Status::Timeout => continue, // reconnect after a network timeout
-                status => Err(Error::TwitchClientTerminated(status))
+            status = done => {
+                status?;
+                continue // reconnect after a network timeout or other error that causes twitchchat to return
             }
         }
     }
