@@ -58,6 +58,7 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
 /// Errors that may occur in this crate.
 #[derive(Debug, From)]
 pub enum Error {
+    Annotated(String, Box<Error>),
     ChannelIdParse(ChannelIdParseError),
     Diesel(diesel::result::Error),
     DieselConnection(ConnectionError),
@@ -77,7 +78,8 @@ pub enum Error {
     SerDe(serde_json::Error),
     Serenity(serenity::Error),
     /// Returned from `listen_ipc` if a command line was not valid shell lexer tokens.
-    Shlex,
+    #[from(ignore)]
+    Shlex(shlex::Error, String),
     Twitch(twitchchat::Error),
     TwitchEventStreamEnded,
     #[from(ignore)]
@@ -85,25 +87,13 @@ pub enum Error {
     UnknownCommand(Vec<String>),
     #[from(ignore)]
     UnknownTwitchNick(String),
-    UserIdParse(UserIdParseError),
-    Wrapped((String, Box<Error>))
-}
-
-/// A helper trait for annotating errors with more informative error messages.
-pub trait IntoResult<T> {
-    /// Annotates an error with an additional message which is displayed along with the error.
-    fn annotate(self, msg: impl Into<String>) -> Result<T, Error>;
-}
-
-impl<T, E: Into<Error>> IntoResult<T> for Result<T, E> {
-    fn annotate(self, msg: impl Into<String>) -> Result<T, Error> {
-        self.map_err(|e| Error::Wrapped((msg.into(), Box::new(e.into()))))
-    }
+    UserIdParse(UserIdParseError)
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Error::Annotated(ref msg, ref e) => write!(f, "{}: {}", msg, e),
             Error::ChannelIdParse(ref e) => e.fmt(f),
             Error::Diesel(ref e) => e.fmt(f),
             Error::DieselConnection(ref e) => e.fmt(f),
@@ -118,14 +108,38 @@ impl fmt::Display for Error {
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
             Error::SerDe(ref e) => e.fmt(f),
             Error::Serenity(ref e) => e.fmt(f),
-            Error::Shlex => write!(f, "failed to parse IPC command line"),
+            Error::Shlex(e, ref line) => write!(f, "failed to parse IPC command line: {}: {}", e, line),
             Error::Twitch(ref e) => e.fmt(f),
             Error::TwitchEventStreamEnded => write!(f, "Twitch chat event stream ended unexpectedly"),
             Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
             Error::UnknownTwitchNick(ref channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
-            Error::UserIdParse(ref e) => e.fmt(f),
-            Error::Wrapped((ref msg, ref e)) => write!(f, "{}: {}", msg, e)
+            Error::UserIdParse(ref e) => e.fmt(f)
         }
+    }
+}
+
+/// A helper trait for annotating errors with more informative error messages.
+pub trait IntoResultExt {
+    /// The return type of the `annotate` method.
+    type T;
+
+    /// Annotates an error with an additional message which is displayed along with the error.
+    fn annotate(self, msg: impl ToString) -> Self::T;
+}
+
+impl<E: Into<Error>> IntoResultExt for E {
+    type T = Error;
+
+    fn annotate(self, note: impl ToString) -> Error {
+        Error::Annotated(note.to_string(), Box::new(self.into()))
+    }
+}
+
+impl<T, E: IntoResultExt> IntoResultExt for Result<T, E> {
+    type T = Result<T, E::T>;
+
+    fn annotate(self, note: impl ToString) -> Result<T, E::T> {
+        self.map_err(|e| e.annotate(note))
     }
 }
 

@@ -17,7 +17,6 @@ bench = false
 
 [dependencies]
 chrono = "0.4"
-derive_more = "0.99"
 itertools = "0.9"
 lazy_static = "1"
 pin-utils = "0.1"
@@ -25,7 +24,6 @@ rand = "0.7"
 regex = "1"
 serde_json = "1"
 serenity = "0.8"
-shlex = "0.1"
 typemap = "0.3"
 uuid = "0.8"
 whoami = "0.8"
@@ -33,6 +31,11 @@ whoami = "0.8"
 [dependencies.chase]
 version = "0.1"
 features = ["stream"]
+
+[dependencies.derive_more]
+version = "0.99"
+default-features = false
+features = ["from"]
 
 [dependencies.diesel]
 version = "1"
@@ -45,6 +48,9 @@ features = ["compat"]
 [dependencies.serde]
 version = "1"
 features = ["derive"]
+
+[dependencies.shlex]
+git = "https://github.com/fenhl/rust-shlex"
 
 [dependencies.systemd_minecraft]
 git = "https://github.com/wurstmineberg/systemd-minecraft"

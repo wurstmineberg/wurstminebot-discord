@@ -8,11 +8,15 @@ use {
         },
         env,
         io::{
+            self,
             BufReader,
             prelude::*
         },
         iter,
-        net::TcpListener,
+        net::{
+            TcpListener,
+            TcpStream
+        },
         process::{
             Command,
             Stdio
@@ -34,7 +38,7 @@ use {
         Config,
         Database,
         Error,
-        IntoResult,
+        IntoResultExt as _,
         ShardManagerContainer,
         WURSTMINEBERG,
         commands,
@@ -174,49 +178,77 @@ impl EventHandler for Handler {
     }
 }
 
-fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
-    for stream in TcpListener::bind(wurstminebot::IPC_ADDR).annotate("failed to start listening on IPC port")?.incoming() {
-        let stream = stream.annotate("failed to initialize IPC connection")?;
-        for line in BufReader::new(&stream).lines() {
-            let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(Error::Shlex)?;
-            match &args[0][..] {
-                "channel-msg" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                    let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
-                    channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
-                    writeln!(&mut &stream, "message sent")?;
-                }
-                "quit" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                    shut_down(&ctx);
-                    thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
-                    writeln!(&mut &stream, "shutdown complete").annotate("failed to send quit confirmation")?;
-                }
-                "set-display-name" => {
-                    let ctx_guard = ctx_arc.lock();
-                    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                    let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
-                    let new_display_name = &args[2];
-                    match WURSTMINEBERG.edit_member(ctx, &user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })) {
-                        Ok(()) => {
-                            writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
-                        }
-                        Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
-                            writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
-                        } else {
-                            //TODO use box patterns to eliminate this branch and use the next match arm instead
-                            return Err(serenity::Error::Http(e)).annotate("failed to edit member");
-                        },
-                        Err(e) => { return Err(e).annotate("failed to edit member"); }
-                    }
-                }
-                _ => { return Err(Error::UnknownCommand(args)); }
+fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<(), Error> {
+    let mut last_error = Ok(());
+    let mut buf = String::default();
+    for line in BufReader::new(&stream).lines() {
+        let line: String = match line { //DEBUG
+            Ok(line) => line,
+            Err(e) => if e.kind() == io::ErrorKind::ConnectionReset {
+                break; // connection reset by peer, consider the IPC session terminated
+            } else {
+                return Err(e.annotate("failed to read IPC command"));
             }
+        };
+        buf.push_str(&line);
+        let args = match shlex::split(&buf) {
+            Ok(args) => {
+                last_error = Ok(());
+                buf.clear();
+                args
+            }
+            Err(e) => {
+                last_error = Err(Error::Shlex(e, line));
+                buf.push('\n');
+                continue;
+            }
+        };
+        match &args[0][..] {
+            "channel-msg" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
+                channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
+                writeln!(&mut &stream, "message sent")?;
+            }
+            "quit" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                shut_down(&ctx);
+                thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
+                writeln!(&mut &stream, "shutdown complete").annotate("failed to send quit confirmation")?;
+            }
+            "set-display-name" => {
+                let ctx_guard = ctx_arc.lock();
+                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
+                let new_display_name = &args[2];
+                match WURSTMINEBERG.edit_member(ctx, &user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })) {
+                    Ok(()) => {
+                        writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
+                    }
+                    Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
+                        writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
+                    } else {
+                        //TODO use box patterns to eliminate this branch and use the next match arm instead
+                        return Err(serenity::Error::Http(e)).annotate("failed to edit member");
+                    },
+                    Err(e) => { return Err(e).annotate("failed to edit member"); }
+                }
+            }
+            _ => { return Err(Error::UnknownCommand(args)); }
         }
     }
-    unreachable!();
+    last_error
+}
+
+fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
+    for stream in TcpListener::bind(wurstminebot::IPC_ADDR).annotate("failed to start listening on IPC port")?.incoming() {
+        if let Err(e) = stream.map_err(|e| e.annotate("failed to initialize IPC connection")).and_then(|stream| handle_ipc_client(&ctx_arc, stream)) {
+            notify_thread_crash(&ctx_arc.lock(), "IPC client", e);
+        }
+    }
+    unreachable!()
 }
 
 fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
