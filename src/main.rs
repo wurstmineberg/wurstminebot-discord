@@ -180,6 +180,13 @@ fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TOD
         for line in BufReader::new(&stream).lines() {
             let args = shlex::split(&line.annotate("failed to read IPC command")?).ok_or(Error::Shlex)?;
             match &args[0][..] {
+                "channel-msg" => {
+                    let ctx_guard = ctx_arc.lock();
+                    let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
+                    let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
+                    channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
+                    writeln!(&mut &stream, "message sent")?;
+                }
                 "quit" => {
                     let ctx_guard = ctx_arc.lock();
                     let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;

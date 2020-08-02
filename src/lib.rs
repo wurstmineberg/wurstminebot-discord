@@ -58,6 +58,7 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
 /// Errors that may occur in this crate.
 #[derive(Debug, From)]
 pub enum Error {
+    ChannelIdParse(ChannelIdParseError),
     Diesel(diesel::result::Error),
     DieselConnection(ConnectionError),
     Envar(env::VarError),
@@ -103,6 +104,7 @@ impl<T, E: Into<Error>> IntoResult<T> for Result<T, E> {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
+            Error::ChannelIdParse(ref e) => e.fmt(f),
             Error::Diesel(ref e) => e.fmt(f),
             Error::DieselConnection(ref e) => e.fmt(f),
             Error::Envar(ref e) => e.fmt(f),
