@@ -7,16 +7,8 @@ use {
             HashMap
         },
         env,
-        io::{
-            self,
-            BufReader,
-            prelude::*
-        },
+        io::prelude::*,
         iter,
-        net::{
-            TcpListener,
-            TcpStream
-        },
         process::{
             Command,
             Stdio
@@ -27,6 +19,7 @@ use {
     },
     chrono::prelude::*,
     diesel::prelude::*,
+    parking_lot::Condvar,
     serenity::{
         framework::standard::StandardFramework,
         model::prelude::*,
@@ -38,9 +31,7 @@ use {
         Config,
         Database,
         Error,
-        IntoResultExt as _,
         ShardManagerContainer,
-        WURSTMINEBERG,
         commands,
         log,
         minecraft::{
@@ -60,11 +51,14 @@ use {
 const DEV: ChannelId = ChannelId(506905544901001228);
 
 #[derive(Default)]
-struct Handler(Arc<Mutex<Option<Context>>>);
+struct Handler(Arc<(Mutex<Option<Context>>, Condvar)>);
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
-        *self.0.lock() = Some(ctx.clone());
+        let (ref ctx_arc, ref cond) = *self.0;
+        let mut ctx_guard = ctx_arc.lock();
+        *ctx_guard = Some(ctx.clone());
+        cond.notify_all();
         let guilds = ready.user.guilds(&ctx).expect("failed to get guilds");
         if guilds.is_empty() {
             println!("[!!!!] No guilds found, use following URL to invite the bot:");
@@ -178,79 +172,6 @@ impl EventHandler for Handler {
     }
 }
 
-fn handle_ipc_client(ctx_arc: &Mutex<Option<Context>>, stream: TcpStream) -> Result<(), Error> {
-    let mut last_error = Ok(());
-    let mut buf = String::default();
-    for line in BufReader::new(&stream).lines() {
-        let line: String = match line { //DEBUG
-            Ok(line) => line,
-            Err(e) => if e.kind() == io::ErrorKind::ConnectionReset {
-                break; // connection reset by peer, consider the IPC session terminated
-            } else {
-                return Err(e.annotate("failed to read IPC command"));
-            }
-        };
-        buf.push_str(&line);
-        let args = match shlex::split(&buf) {
-            Ok(args) => {
-                last_error = Ok(());
-                buf.clear();
-                args
-            }
-            Err(e) => {
-                last_error = Err(Error::Shlex(e, line));
-                buf.push('\n');
-                continue;
-            }
-        };
-        match &args[0][..] {
-            "channel-msg" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                let channel = args[1].parse::<ChannelId>().annotate("failed to parse channel snowflake")?;
-                channel.say(ctx, &args[2]).annotate("failed to send channel message")?;
-                writeln!(&mut &stream, "message sent")?;
-            }
-            "quit" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                shut_down(&ctx);
-                thread::sleep(Duration::from_secs(1)); // wait to make sure websockets can be closed cleanly
-                writeln!(&mut &stream, "shutdown complete").annotate("failed to send quit confirmation")?;
-            }
-            "set-display-name" => {
-                let ctx_guard = ctx_arc.lock();
-                let ctx = ctx_guard.as_ref().ok_or(Error::MissingContext)?;
-                let user = args[1].parse::<UserId>().annotate("failed to parse user for set-display-name")?.to_user(ctx).annotate("failed to get user for set-display-name")?;
-                let new_display_name = &args[2];
-                match WURSTMINEBERG.edit_member(ctx, &user, |e| e.nickname(if &user.name == new_display_name { "" } else { new_display_name })) {
-                    Ok(()) => {
-                        writeln!(&mut &stream, "display name set").annotate("failed to send set-display-name confirmation")?;
-                    }
-                    Err(serenity::Error::Http(e)) => if let HttpError::UnsuccessfulRequest(response) = *e {
-                        writeln!(&mut &stream, "failed to set display name: {:?}", response)?;
-                    } else {
-                        //TODO use box patterns to eliminate this branch and use the next match arm instead
-                        return Err(serenity::Error::Http(e)).annotate("failed to edit member");
-                    },
-                    Err(e) => { return Err(e).annotate("failed to edit member"); }
-                }
-            }
-            _ => { return Err(Error::UnknownCommand(args)); }
-        }
-    }
-    last_error
-}
-
-fn listen_ipc(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<(), Error> { //TODO change return type to Result<!, Error>
-    for stream in TcpListener::bind(wurstminebot::IPC_ADDR).annotate("failed to start listening on IPC port")?.incoming() {
-        if let Err(e) = stream.map_err(|e| e.annotate("failed to initialize IPC connection")).and_then(|stream| handle_ipc_client(&ctx_arc, stream)) {
-            notify_thread_crash(&ctx_arc.lock(), "IPC client", e);
-        }
-    }
-    unreachable!()
-}
-
 fn notify_thread_crash(ctx: &Option<Context>, thread_kind: &str, e: Error) {
     if ctx.as_ref().and_then(|ctx| DEV.say(ctx, format!("{} thread crashed: {} (`{:?}`)", thread_kind, e, e)).ok()).is_none() {
         let mut child = Command::new("mail")
@@ -273,7 +194,7 @@ async fn main() -> Result<(), Error> {
     let mut args = env::args().peekable();
     let _ = args.next(); // ignore executable name
     if args.peek().is_some() {
-        println!("{}", wurstminebot::send_ipc_command(args)?);
+        println!("{}", wurstminebot::ipc::send(args)?);
     } else {
         // read config
         let config = Config::new()?;
@@ -319,9 +240,9 @@ async fn main() -> Result<(), Error> {
         //TODO rewrite using tokio
         {
             thread::Builder::new().name(format!("wurstminebot IPC")).spawn(move || {
-                if let Err(e) = listen_ipc(ctx_arc_ipc.clone()) { //TODO remove `if` after changing from `()` to `!`
+                if let Err(e) = wurstminebot::ipc::listen(ctx_arc_ipc.clone(), &|ctx, thread_kind, e| notify_thread_crash(ctx, thread_kind, e.into())) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_ipc.lock(), "IPC", e);
+                    notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e);
                 }
             })?;
         }
@@ -330,7 +251,7 @@ async fn main() -> Result<(), Error> {
             tokio::spawn(async move {
                 if let Err(e) = log::handle(ctx_arc_log.clone()).await {
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_log.lock(), "log", e.into());
+                    notify_thread_crash(&ctx_arc_log.0.lock(), "log", e.into());
                 }
             });
         }
@@ -339,7 +260,7 @@ async fn main() -> Result<(), Error> {
             tokio::spawn(async move {
                 if let Err(e) = twitch::listen_chat(ctx_arc_twitch.clone()).await {
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_twitch.lock(), "Twitch", e);
+                    notify_thread_crash(&ctx_arc_twitch.0.lock(), "Twitch", e);
                 }
             });
         }

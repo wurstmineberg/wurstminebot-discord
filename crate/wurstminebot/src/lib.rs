@@ -35,6 +35,7 @@ use {
 
 pub mod commands;
 pub mod emoji;
+pub mod ipc;
 pub mod log;
 pub mod minecraft;
 pub mod parse;
@@ -64,6 +65,7 @@ pub enum Error {
     DieselConnection(ConnectionError),
     Envar(env::VarError),
     Io(io::Error),
+    Ipc(crate::ipc::Error),
     Join(tokio::task::JoinError),
     Log(log::Error),
     #[from(ignore)]
@@ -92,28 +94,29 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Error::Annotated(ref msg, ref e) => write!(f, "{}: {}", msg, e),
-            Error::ChannelIdParse(ref e) => e.fmt(f),
-            Error::Diesel(ref e) => e.fmt(f),
-            Error::DieselConnection(ref e) => e.fmt(f),
-            Error::Envar(ref e) => e.fmt(f),
-            Error::Io(ref e) => e.fmt(f),
-            Error::Join(ref e) => e.fmt(f),
-            Error::Log(ref e) => e.fmt(f),
-            Error::MalformedTwitchChannelName(ref channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
-            Error::Minecraft(ref e) => e.fmt(f),
+        match self {
+            Error::Annotated(msg, e) => write!(f, "{}: {}", msg, e),
+            Error::ChannelIdParse(e) => e.fmt(f),
+            Error::Diesel(e) => e.fmt(f),
+            Error::DieselConnection(e) => e.fmt(f),
+            Error::Envar(e) => e.fmt(f),
+            Error::Io(e) => e.fmt(f),
+            Error::Ipc(e) => e.fmt(f),
+            Error::Join(e) => e.fmt(f),
+            Error::Log(e) => e.fmt(f),
+            Error::MalformedTwitchChannelName(channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
+            Error::Minecraft(e) => e.fmt(f),
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::MissingNewline => write!(f, "the reply to an IPC command did not end in a newline"),
-            Error::SerDe(ref e) => e.fmt(f),
-            Error::Serenity(ref e) => e.fmt(f),
-            Error::Shlex(e, ref line) => write!(f, "failed to parse IPC command line: {}: {}", e, line),
-            Error::Twitch(ref e) => e.fmt(f),
+            Error::SerDe(e) => e.fmt(f),
+            Error::Serenity(e) => e.fmt(f),
+            Error::Shlex(e, line) => write!(f, "failed to parse IPC command line: {}: {}", e, line),
+            Error::Twitch(e) => e.fmt(f),
             Error::TwitchEventStreamEnded => write!(f, "Twitch chat event stream ended unexpectedly"),
-            Error::UnknownCommand(ref args) => write!(f, "unknown command: {:?}", args),
-            Error::UnknownTwitchNick(ref channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
-            Error::UserIdParse(ref e) => e.fmt(f)
+            Error::UnknownCommand(args) => write!(f, "unknown command: {:?}", args),
+            Error::UnknownTwitchNick(channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
+            Error::UserIdParse(e) => e.fmt(f)
         }
     }
 }
