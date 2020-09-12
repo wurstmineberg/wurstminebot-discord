@@ -242,7 +242,7 @@ async fn main() -> Result<(), Error> {
             thread::Builder::new().name(format!("wurstminebot IPC")).spawn(move || {
                 if let Err(e) = wurstminebot::ipc::listen(ctx_arc_ipc.clone(), &|ctx, thread_kind, e| notify_thread_crash(ctx, thread_kind, e.into())) { //TODO remove `if` after changing from `()` to `!`
                     eprintln!("{}", e);
-                    notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e);
+                    notify_thread_crash(&ctx_arc_ipc.0.lock(), "IPC", e.into());
                 }
             })?;
         }
