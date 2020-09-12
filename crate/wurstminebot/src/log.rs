@@ -24,6 +24,7 @@ use {
     },
     itertools::Itertools as _,
     lazy_static::lazy_static,
+    parking_lot::Condvar,
     pin_utils::pin_mut,
     regex::Regex,
     serenity::{
@@ -198,7 +199,7 @@ fn follow(world: &World) -> impl Stream<Item = Result<Line, Error>> {
     }).try_flatten()
 }
 
-pub async fn handle(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, Error> { //TODO dynamically update handled worlds as they are added/removed
+pub async fn handle(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<Never, Error> { //TODO dynamically update handled worlds as they are added/removed
     let mut handles = Vec::default();
     for world in World::all()? {
         handles.push(tokio::spawn(handle_world(ctx_arc.clone(), world)));
@@ -211,7 +212,7 @@ pub async fn handle(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, Error
     Err(Error::NoWorlds)
 }
 
-async fn handle_world(ctx_arc: Arc<Mutex<Option<Context>>>, world: World) -> Result<Never, Error> {
+async fn handle_world(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>, world: World) -> Result<Never, Error> {
     let follower = follow(&world);
     pin_mut!(follower);
     let mut player_uuids = HashMap::new();
@@ -219,7 +220,7 @@ async fn handle_world(ctx_arc: Arc<Mutex<Option<Context>>>, world: World) -> Res
         match line {
             Line::Regular { content, .. } => match content {
                 RegularLine::Chat { sender, msg, is_action } => {
-                    if let Some(ctx) = ctx_arc.lock().as_ref() {
+                    if let Some(ctx) = ctx_arc.0.lock().as_ref() {
                         if let Some(chan_id) = ctx.data.read().get::<crate::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
                             if let Ok(webhook) = chan_id.webhooks(ctx)?.into_iter().exactly_one() {
                                 webhook.execute(ctx, false, |w| {

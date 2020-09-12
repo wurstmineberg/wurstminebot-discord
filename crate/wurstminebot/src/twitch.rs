@@ -5,6 +5,7 @@ use {
         sync::Arc
     },
     futures::stream::StreamExt as _,
+    parking_lot::Condvar,
     serenity::prelude::*,
     systemd_minecraft::World,
     twitchchat::{
@@ -24,9 +25,9 @@ use {
     }
 };
 
-pub async fn listen_chat(ctx_arc: Arc<Mutex<Option<Context>>>) -> Result<Never, Error> {
+pub async fn listen_chat(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<Never, Error> {
     loop {
-        let nick_map = if let Some(ctx) = ctx_arc.lock().as_ref() {
+        let nick_map = if let Some(ctx) = ctx_arc.0.lock().as_ref() {
             let data = ctx.data.read();
             let conn = data.get::<Database>().expect("missing database connection").lock();
             let everyone = Person::all(&conn)?;
