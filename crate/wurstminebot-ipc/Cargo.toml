@@ -9,10 +9,11 @@ name = "wurstminebot_ipc"
 path = "src/lib.rs"
 
 [dependencies]
-serenity = "0.8"
+serenity = "0.9"
 
 [dependencies.wurstminebot]
 path = "../wurstminebot"
 
 [dependencies.serenity-utils]
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+branch = "main"

@@ -8,11 +8,11 @@ use {
         fs,
         io,
         mem,
-        str::FromStr
+        str::FromStr,
     },
     lazy_static::lazy_static,
     regex::Regex,
-    serenity::model::prelude::*
+    serenity::model::prelude::*,
 };
 
 /// An error that can occur while parsing emoji from a message.
@@ -44,6 +44,8 @@ impl fmt::Display for Error {
         }
     }
 }
+
+impl std::error::Error for Error {}
 
 /// An iterator over all the emoji in a message.
 ///

@@ -4,26 +4,28 @@ use {
     std::{
         collections::BTreeMap,
         fs::File,
-        io
+        io,
     },
     serde_json::{
         self,
-        json
+        json,
     },
-    serenity::model::prelude::*,
-    typemap::Key,
-    crate::base_path
+    serenity::{
+        model::prelude::*,
+        prelude::*,
+    },
+    crate::base_path,
 };
 
 /// `typemap` key for the voice state data: A mapping of voice channel names to users.
 pub struct VoiceStates;
 
-impl Key for VoiceStates {
+impl TypeMapKey for VoiceStates {
     type Value = BTreeMap<String, Vec<User>>;
 }
 
 /// Takes a mapping from voice channel names to users and dumps the output for the API.
-pub fn dump_info(voice_states: &<VoiceStates as Key>::Value) -> io::Result<()> {
+pub fn dump_info(voice_states: &<VoiceStates as TypeMapKey>::Value) -> io::Result<()> {
     let f = File::create(base_path().join("discord/voice-state.json"))?;
     serde_json::to_writer(f, &json!({
         "channels": voice_states.into_iter()

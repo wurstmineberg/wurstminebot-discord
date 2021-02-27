@@ -3,126 +3,154 @@
 #![allow(missing_docs)]
 
 use {
+    std::collections::HashSet,
     rand::prelude::*,
     serenity::{
         framework::standard::{
             Args,
+            CommandGroup,
             CommandResult,
+            HelpOptions,
+            help_commands,
             macros::{
                 command,
-                group
-            }
+                group,
+                help,
+            },
         },
         model::prelude::*,
         prelude::*,
-        utils::MessageBuilder
+        utils::MessageBuilder,
+    },
+    systemd_minecraft::{
+        VersionSpec,
+        World,
     },
     crate::{
-        Config,
         Database,
+        config::Config,
         emoji,
         parse,
-        shut_down
-    }
+    },
+};
+pub use self::{
+    HELP as HELP_COMMAND,
+    MAIN_GROUP as GROUP,
 };
 
 const GENERAL: ChannelId = ChannelId(88318761228054528);
 
+#[help]
+async fn help(ctx: &Context, msg: &Message, args: Args, help_options: &'static HelpOptions, groups: &[&'static CommandGroup], owners: HashSet<UserId>) -> CommandResult {
+    let _ = help_commands::with_embeds(ctx, msg, args, help_options, groups, owners).await;
+    Ok(())
+}
+
 #[command]
-pub fn iam(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let mut sender = if let Some(sender) = msg.member(&ctx) {
+pub async fn iam(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let mut sender = if let Ok(sender) = msg.member(ctx).await {
         sender
     } else {
         //TODO get from `WURSTMINEBERG` guild instead of erroring
-        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry")?;
+        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry").await?;
         return Ok(());
     };
     let mut cmd = args.message();
-    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx)) {
+    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(ctx).await).await {
         role
     } else {
-        msg.reply(ctx, "no such role")?;
+        msg.reply(ctx, "no such role").await?;
         return Ok(());
     };
-    if !ctx.data.read().get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
-        msg.reply(ctx, "this role is not self-assignable")?;
+    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
+        msg.reply(ctx, "this role is not self-assignable").await?;
         return Ok(());
     }
     if sender.roles.contains(&role) {
-        msg.reply(ctx, "you already have this role")?;
+        msg.reply(ctx, "you already have this role").await?;
         return Ok(());
     }
-    sender.add_role(&ctx, role)?;
-    msg.reply(ctx, "role added")?;
+    sender.add_role(&ctx, role).await?;
+    msg.reply(ctx, "role added").await?;
     Ok(())
 }
 
 #[command]
-pub fn iamn(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let mut sender = if let Some(sender) = msg.member(&ctx) {
+pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let mut sender = if let Ok(sender) = msg.member(&ctx).await {
         sender
     } else {
         //TODO get from `WURSTMINEBERG` guild instead of erroring
-        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry")?;
+        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry").await?;
         return Ok(());
     };
     let mut cmd = args.message();
-    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx)) {
+    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx).await).await {
         role
     } else {
-        msg.reply(ctx, "no such role")?;
+        msg.reply(ctx, "no such role").await?;
         return Ok(());
     };
-    if !ctx.data.read().get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
-        msg.reply(ctx, "this role is not self-assignable")?;
+    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
+        msg.reply(ctx, "this role is not self-assignable").await?;
         return Ok(());
     }
     if !sender.roles.contains(&role) {
-        msg.reply(ctx, "you already don't have this role")?;
+        msg.reply(ctx, "you already don't have this role").await?;
         return Ok(());
     }
-    sender.remove_role(&ctx, role)?;
-    msg.reply(ctx, "role removed")?;
+    sender.remove_role(&ctx, role).await?;
+    msg.reply(ctx, "role removed").await?;
     Ok(())
 }
 
 #[command]
-pub fn ping(ctx: &mut Context, msg: &Message, _: Args) -> CommandResult {
-    let mut rng = thread_rng();
-    let pingception = format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5)));
-    msg.reply(ctx, if rng.gen_bool(0.001) { &pingception } else { "pong" })?;
+pub async fn ping(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
+    let reply = {
+        let mut rng = thread_rng();
+        if rng.gen_bool(0.001) { format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5))) } else { format!("pong") }
+    };
+    msg.reply(ctx, reply).await?;
     Ok(())
 }
 
 #[command]
-pub fn poll(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let mut emoji_iter = emoji::Iter::new(msg.content.to_owned())?.peekable();
     if emoji_iter.peek().is_some() {
         for emoji in emoji_iter {
-            msg.react(&ctx, emoji)?;
+            msg.react(&ctx, emoji).await?;
         }
     } else if let Ok(num_reactions) = args.single::<u8>() {
         for i in 0..num_reactions.min(26) {
-            msg.react(&ctx, emoji::nth_letter(i))?;
+            msg.react(&ctx, emoji::nth_letter(i)).await?;
         }
     } else {
-        msg.react(&ctx, "👍")?;
-        msg.react(&ctx, "👎")?;
+        msg.react(&ctx, '👍').await?;
+        msg.react(&ctx, '👎').await?;
     }
     Ok(())
 }
 
 #[command]
 #[owners_only]
-fn quit(ctx: &mut Context, _: &Message, _: Args) -> CommandResult {
-    shut_down(&ctx);
+async fn quit(ctx: &Context, _: &Message, _: Args) -> CommandResult {
+    serenity_utils::shut_down(&ctx).await;
     Ok(())
 }
 
 #[command]
-fn veto(ctx: &mut Context, _: &Message, args: Args) -> CommandResult {
-    let data = ctx.data.read();
-    let conn = data.get::<Database>().expect("missing database connection").lock();
+async fn update(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
+    if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
+        World::new(world_name).update(VersionSpec::LatestRelease).await?;
+    }
+    Ok(())
+}
+
+#[command]
+async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
+    let data = ctx.data.read().await;
+    let conn = data.get::<Database>().expect("missing database connection").lock().await;
     let mut cmd = args.message();
     let mut builder = MessageBuilder::default();
     builder.push("invite for ");
@@ -131,7 +159,7 @@ fn veto(ctx: &mut Context, _: &Message, args: Args) -> CommandResult {
         None => { builder.push_mono_safe(cmd); }
     }
     builder.push(" has been vetoed");
-    GENERAL.say(&ctx, builder)?;
+    GENERAL.say(&ctx, builder).await?;
     Ok(())
 }
 
@@ -142,8 +170,6 @@ fn veto(ctx: &mut Context, _: &Message, args: Args) -> CommandResult {
     ping,
     poll,
     quit,
-    veto
+    veto,
 )]
 struct Main;
-
-pub use self::MAIN_GROUP as GROUP;

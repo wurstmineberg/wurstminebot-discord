@@ -4,13 +4,13 @@ use {
     diesel::prelude::*,
     serde_json::{
         Value as Json,
-        json
+        json,
     },
     serenity::model::prelude::*,
     crate::{
         Error,
-        schema::people::dsl::*
-    }
+        schema::people::dsl::*,
+    },
 };
 
 /// A Person is a member (or former member or invitee) of Wurstmineberg.
@@ -26,7 +26,7 @@ pub struct Person {
     data: Option<Json>,
     version: i32,
     apikey: Option<String>,
-    discorddata: Option<Json>
+    discorddata: Option<Json>,
 }
 
 impl Person {
@@ -101,15 +101,14 @@ impl Person {
     /// If successful, the updated Person is returned.
     pub fn update_discord_data(conn: &PgConnection, member: &Member) -> Result<Option<Person>, Error> {
         //TODO update display name in data column
-        let user = member.user.read().clone();
-        diesel::update(people.filter(snowflake.eq(Some(user.id.0 as i64))))
+        diesel::update(people.filter(snowflake.eq(Some(member.user.id.0 as i64))))
             .set(discorddata.eq(Some(json!({
-                "avatar": user.avatar_url(),
-                "discriminator": user.discriminator,
+                "avatar": member.user.avatar_url(),
+                "discriminator": member.user.discriminator,
                 "joined": if let Some(ref join_date) = member.joined_at { join_date } else { return Err(Error::MissingJoinDate) },
                 "nick": &member.nick,
                 "roles": &member.roles,
-                "username": user.name
+                "username": member.user.name,
             }))))
             .get_result(conn)
             .optional()
@@ -128,7 +127,7 @@ impl Mentionable for Person {
                     wmb_id.clone()
                 }
             }
-            (None, &None) => { panic!("tried to mention user with no IDs"); }
+            (None, &None) => { panic!("tried to mention user with no IDs") }
         }
     }
 }

@@ -13,16 +13,15 @@ bench = false
 
 [dependencies]
 chrono = "0.4"
-parking_lot = "0.11"
-serenity = "0.8"
-typemap = "0.3"
+serenity = "0.9"
 
 [dependencies.diesel]
 version = "1"
 features = ["postgres", "serde_json"]
 
-[dependencies.shlex]
-git = "https://github.com/fenhl/rust-shlex"
+[dependencies.serenity-utils]
+git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+branch = "main"
 
 [dependencies.systemd_minecraft]
 git = "https://github.com/wurstmineberg/systemd-minecraft"

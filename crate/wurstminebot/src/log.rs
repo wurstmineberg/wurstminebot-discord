@@ -5,13 +5,11 @@ use {
         fmt,
         io,
         str::FromStr,
-        sync::Arc
     },
     chase::{
         ChaseError,
-        Chaser
+        Chaser,
     },
-    //chrono::prelude::*,
     derive_more::From,
     futures::{
         compat::Stream01CompatExt as _,
@@ -24,13 +22,13 @@ use {
     },
     itertools::Itertools as _,
     lazy_static::lazy_static,
-    parking_lot::Condvar,
     pin_utils::pin_mut,
     regex::Regex,
     serenity::{
         prelude::*,
         utils::MessageBuilder
     },
+    serenity_utils::RwFuture,
     systemd_minecraft::World,
     tokio::{
         fs::File,
@@ -199,10 +197,10 @@ fn follow(world: &World) -> impl Stream<Item = Result<Line, Error>> {
     }).try_flatten()
 }
 
-pub async fn handle(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<Never, Error> { //TODO dynamically update handled worlds as they are added/removed
+pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO dynamically update handled worlds as they are added/removed
     let mut handles = Vec::default();
     for world in World::all()? {
-        handles.push(tokio::spawn(handle_world(ctx_arc.clone(), world)));
+        handles.push(tokio::spawn(handle_world(ctx_fut.clone(), world)));
     }
     match try_join_all(handles).await?.pop() {
         Some(Ok(never)) => match never {},
@@ -212,7 +210,7 @@ pub async fn handle(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>) -> Result<N
     Err(Error::NoWorlds)
 }
 
-async fn handle_world(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>, world: World) -> Result<Never, Error> {
+async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never, Error> {
     let follower = follow(&world);
     pin_mut!(follower);
     let mut player_uuids = HashMap::new();
@@ -220,25 +218,25 @@ async fn handle_world(ctx_arc: Arc<(Mutex<Option<Context>>, Condvar)>, world: Wo
         match line {
             Line::Regular { content, .. } => match content {
                 RegularLine::Chat { sender, msg, is_action } => {
-                    if let Some(ctx) = ctx_arc.0.lock().as_ref() {
-                        if let Some(chan_id) = ctx.data.read().get::<crate::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
-                            if let Ok(webhook) = chan_id.webhooks(ctx)?.into_iter().exactly_one() {
-                                webhook.execute(ctx, false, |w| {
-                                    if let Some(uuid) = player_uuids.get(&sender) {
-                                        w.avatar_url(format!("https://crafatar.com/renders/head/{}", uuid));
-                                    }
-                                    w.content(if is_action {
-                                        let mut builder = MessageBuilder::default();
-                                        builder.push_italic_safe(msg);
-                                        builder
-                                    } else {
-                                        let mut builder = MessageBuilder::default();
-                                        builder.push_safe(msg);
-                                        builder
-                                    })
-                                    .username(sender) //TODO use Discord nickname instead of Minecraft nickname?
-                                })?;
-                            }
+                    let ctx = ctx_fut.read().await;
+                    let ctx_data = (*ctx).data.read().await;
+                    if let Some(chan_id) = ctx_data.get::<crate::config::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
+                        if let Ok(webhook) = chan_id.webhooks(&*ctx).await?.into_iter().exactly_one() {
+                            webhook.execute(&*ctx, false, |w| {
+                                if let Some(uuid) = player_uuids.get(&sender) {
+                                    w.avatar_url(format!("https://crafatar.com/renders/head/{}", uuid));
+                                }
+                                w.content(if is_action {
+                                    let mut builder = MessageBuilder::default();
+                                    builder.push_italic_safe(msg);
+                                    builder
+                                } else {
+                                    let mut builder = MessageBuilder::default();
+                                    builder.push_safe(msg);
+                                    builder
+                                })
+                                .username(sender) //TODO use Discord nickname instead of Minecraft nickname?
+                            }).await?;
                         }
                     }
                 }

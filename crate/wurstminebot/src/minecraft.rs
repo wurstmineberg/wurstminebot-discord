@@ -51,6 +51,6 @@ impl fmt::Display for Chat {
     }
 }
 
-pub fn tellraw(world: &World, rcpt: &str, msg: &Chat) -> Result<String, Error> {
-    Ok(world.command(&format!("tellraw {} {}", rcpt, msg))?)
+pub async fn tellraw(world: &World, rcpt: &str, msg: &Chat) -> Result<String, Error> {
+    Ok(world.command(&format!("tellraw {} {}", rcpt, msg)).await?)
 }
