@@ -24,7 +24,7 @@ use {
         ShardManagerContainer,
     },
     systemd_minecraft::World,
-    tokio::time::delay_for as sleep,
+    tokio::time::sleep,
     wurstminebot::{
         Database,
         Error,
@@ -143,10 +143,10 @@ impl EventHandler for Handler {
             minecraft::tellraw(&World::new(world_name), "@a", Chat::from(format!(
                 "[Discord:#{}] <{}> {}",
                 if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
-                msg.author.name, //TODO replace with nickname, include discriminator if nickname is ambiguous
-                msg.content //TODO format mentions and emoji
+                msg.author.name, //TODO replace with nickname, include username/discriminator if nickname is ambiguous
+                msg.content, //TODO format mentions and emoji
             )).color(minecraft::Color::Aqua)).await.expect("chatsync failed");
-        }
+        };
     }
 
     async fn voice_state_update(&self, ctx: Context, _: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
@@ -191,13 +191,15 @@ async fn main() -> Result<(), Error> {
         let owners = iter::once(Http::new_with_token(&config.wurstminebot.bot_token).get_current_application_info().await?.owner.id).collect();
         let mut client = Client::builder(&config.wurstminebot.bot_token)
             .event_handler(handler)
-            .add_intent(GatewayIntents::DIRECT_MESSAGES)
-            .add_intent(GatewayIntents::DIRECT_MESSAGE_REACTIONS)
-            .add_intent(GatewayIntents::GUILDS)
-            .add_intent(GatewayIntents::GUILD_MEMBERS)
-            .add_intent(GatewayIntents::GUILD_BANS)
-            .add_intent(GatewayIntents::GUILD_VOICE_STATES)
-            .add_intent(GatewayIntents::GUILD_MESSAGES)
+            .intents(
+                GatewayIntents::DIRECT_MESSAGES
+                | GatewayIntents::DIRECT_MESSAGE_REACTIONS
+                | GatewayIntents::GUILDS
+                | GatewayIntents::GUILD_MEMBERS
+                | GatewayIntents::GUILD_BANS
+                | GatewayIntents::GUILD_VOICE_STATES
+                | GatewayIntents::GUILD_MESSAGES
+            )
             .framework(StandardFramework::new()
                 .configure(|c| c
                     .with_whitespace(true) // allow ! command
@@ -223,14 +225,11 @@ async fn main() -> Result<(), Error> {
                 .help(&commands::HELP_COMMAND)
                 .group(&commands::GROUP)
             )
+            .type_map_insert::<Config>(config)
+            .type_map_insert::<Database>(Mutex::new(PgConnection::establish("postgres:///wurstmineberg")?))
+            .type_map_insert::<VoiceStates>(BTreeMap::default())
             .await?;
-        {
-            let mut data = client.data.write().await;
-            data.insert::<Config>(config);
-            data.insert::<Database>(Mutex::new(PgConnection::establish("postgres:///wurstmineberg")?));
-            data.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-            data.insert::<VoiceStates>(BTreeMap::default());
-        }
+        client.data.write().await.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
         // listen for IPC commands
         tokio::spawn(async move {
             match wurstminebot::ipc::listen(ctx_fut_ipc.clone(), &|ctx, thread_kind, e| wurstminebot::notify_thread_crash(ctx, thread_kind, e, None)).await {

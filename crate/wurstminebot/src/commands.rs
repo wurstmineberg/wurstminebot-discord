@@ -108,7 +108,7 @@ pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 pub async fn ping(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     let reply = {
         let mut rng = thread_rng();
-        if rng.gen_bool(0.001) { format!("BWO{}{}G", "R".repeat(rng.gen_range(3, 20)), "N".repeat(rng.gen_range(1, 5))) } else { format!("pong") }
+        if rng.gen_bool(0.01) { format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5))) } else { format!("pong") }
     };
     msg.reply(ctx, reply).await?;
     Ok(())
@@ -155,7 +155,7 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
     let mut builder = MessageBuilder::default();
     builder.push("invite for ");
     match parse::eat_person(&mut cmd, &conn)? {
-        Some(person) => { builder.mention(&person); } //TODO make sure remaining command is empty (or only whitespace), validate veto period, kick person from guild and remove from whitelist
+        Some(person) => { builder.push(person.mention()); } //TODO make sure remaining command is empty (or only whitespace), validate veto period, kick person from guild and remove from whitelist
         None => { builder.push_mono_safe(cmd); }
     }
     builder.push(" has been vetoed");

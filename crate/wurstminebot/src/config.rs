@@ -14,6 +14,7 @@ use {
 /// A parsed configuration file for wurstminebot.
 #[derive(Deserialize)]
 pub struct Config {
+    pub twitch: crate::twitch::Config,
     pub wurstminebot: ConfigWurstminebot,
 }
 

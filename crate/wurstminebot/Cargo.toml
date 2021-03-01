@@ -4,18 +4,14 @@ version = "0.1.0"
 authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2018"
 
-[lib]
-name = "wurstminebot"
-path = "src/lib.rs"
-
 [dependencies]
-itertools = "0.9"
+itertools = "0.10"
 lazy_static = "1"
 pin-utils = "0.1"
-rand = "0.7"
+rand = "0.8"
 regex = "1"
 serde_json = "1"
-serenity = "0.9"
+serenity = "0.10"
 uuid = "0.8"
 
 [dependencies.chase]
@@ -27,7 +23,7 @@ version = "0.99"
 default-features = false
 features = ["from"]
 
-[dependencies.diesel]
+[dependencies.diesel] #TODO use something async instead?
 version = "1"
 features = ["postgres", "serde_json"]
 
@@ -49,10 +45,18 @@ branch = "riir"
 package = "minecraft"
 
 [dependencies.tokio]
-version = "0.2"
-features = ["fs", "macros", "rt-threaded"]
+version = "1"
+features = ["fs", "macros", "rt-multi-thread"]
+
+[dependencies.tokio-stream]
+#version = "0.1" #TODO use crates.io version once e3f2dcf is released
+git = "https://github.com/tokio-rs/tokio"
+rev = "e3f2dcf5bc8315f01c8843259e78c8e98203a978"
+features = ["io-util"]
 
 [dependencies.twitchchat]
-version = "0.11"
+#version = "0.11"
+git = "https://github.com/museun/twitchchat" #TODO switch back to crates.io once tokio 1 is supported
+rev = "6292ca3c523bcb31a2c746aaae88439fd0fb4c55"
 default-features = false
-features = ["async", "tokio_rustls"]
+features = ["async", "tokio", "tokio-rustls", "tokio-util", "webpki-roots"]

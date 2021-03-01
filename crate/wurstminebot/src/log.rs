@@ -17,8 +17,8 @@ use {
         prelude::*,
         stream::{
             self,
-            Stream
-        }
+            Stream,
+        },
     },
     itertools::Itertools as _,
     lazy_static::lazy_static,
@@ -26,18 +26,21 @@ use {
     regex::Regex,
     serenity::{
         prelude::*,
-        utils::MessageBuilder
+        utils::MessageBuilder,
     },
     serenity_utils::RwFuture,
     systemd_minecraft::World,
     tokio::{
         fs::File,
-        io::BufReader,
-        prelude::*,
-        task::JoinError
+        io::{
+            AsyncBufReadExt as _,
+            BufReader,
+        },
+        task::JoinError,
     },
+    tokio_stream::wrappers::LinesStream,
     uuid::Uuid,
-    crate::util::ResultNeverExt as _
+    crate::util::ResultNeverExt as _,
 };
 
 lazy_static! {
@@ -56,7 +59,7 @@ pub enum Error {
     Io(io::Error),
     NoWorlds, //TODO remove once `handle` automatically handles new worlds as they are created
     Serenity(serenity::Error),
-    Task(JoinError)
+    Task(JoinError),
 }
 
 impl From<Never> for Error {
@@ -74,14 +77,14 @@ impl fmt::Display for Error {
             Error::Io(e) => write!(f, "I/O error in log handler: {}", e),
             Error::NoWorlds => write!(f, "failed to start log handler: no worlds configured"),
             Error::Serenity(e) => write!(f, "error in log handler: {}", e),
-            Error::Task(e) => write!(f, "error in log handler: {}", e)
+            Error::Task(e) => write!(f, "error in log handler: {}", e),
         }
     }
 }
 
 enum Thread {
     Server,
-    Unknown(String)
+    Unknown(String),
 }
 
 impl FromStr for Thread {
@@ -90,7 +93,7 @@ impl FromStr for Thread {
     fn from_str(s: &str) -> Result<Thread, Never> {
         Ok(match s {
             "Server thread" => Thread::Server,
-            _ => Thread::Unknown(s.to_owned())
+            _ => Thread::Unknown(s.to_owned()),
         })
     }
 }
@@ -98,7 +101,7 @@ impl FromStr for Thread {
 enum Level {
     Info,
     Warn,
-    Error
+    Error,
 }
 
 impl FromStr for Level {
@@ -109,7 +112,7 @@ impl FromStr for Level {
             "INFO" => Ok(Level::Info),
             "WARN" => Ok(Level::Warn),
             "ERROR" => Ok(Level::Error),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -118,13 +121,13 @@ enum RegularLine {
     Chat {
         sender: String,
         msg: String,
-        is_action: bool
+        is_action: bool,
     },
     PlayerUuid {
         nickname: String,
-        uuid: Uuid
+        uuid: Uuid,
     },
-    Unknown(String)
+    Unknown(String),
 }
 
 impl FromStr for RegularLine {
@@ -135,18 +138,18 @@ impl FromStr for RegularLine {
             RegularLine::Chat {
                 sender: captures[1].to_owned(),
                 msg: captures[2].to_owned(),
-                is_action: false
+                is_action: false,
             }
         } else if let Some(captures) = CHAT_ACTION_LINE.captures(s) {
             RegularLine::Chat {
                 sender: captures[1].to_owned(),
                 msg: captures[2].to_owned(),
-                is_action: true
+                is_action: true,
             }
         } else if let Some(captures) = PLAYER_UUID_LINE.captures(s) {
             RegularLine::PlayerUuid {
                 nickname: captures[1].to_owned(),
-                uuid: captures[2].parse().expect("UUID that matches regex should parse")
+                uuid: captures[2].parse().expect("UUID that matches regex should parse"),
             }
         } else {
             RegularLine::Unknown(s.to_owned())
@@ -159,9 +162,9 @@ enum Line {
         //timestamp: DateTime<Utc>,
         //thread: Thread,
         //level: Level,
-        content: RegularLine
+        content: RegularLine,
     },
-    Unknown(String)
+    Unknown(String),
 }
 
 impl Line {
@@ -171,7 +174,7 @@ impl Line {
             //timestamp: Utc.datetime_from_str(&captures[1], "%Y-%m-%d %H:%M:%S").ok()?,
             //thread: captures[2].parse().never_unwrap(),
             //level: captures[3].parse().expect("level that matches regex should parse"),
-            content: captures[4].parse().never_unwrap()
+            content: captures[4].parse().never_unwrap(),
         })
     }
 }
@@ -189,7 +192,7 @@ fn follow(world: &World) -> impl Stream<Item = Result<Line, Error>> {
     let log_path = world.dir().join("logs/latest.log");
     stream::once(async {
         let f: File = File::open(&log_path).await?; //DEBUG
-        let init_lines = BufReader::new(f).lines().try_fold(0, |acc, _| async move { Ok(acc + 1) }).await?;
+        let init_lines = LinesStream::new(BufReader::new(f).lines()).try_fold(0, |acc, _| async move { Ok(acc + 1) }).await?;
         let mut chaser = Chaser::new(log_path);
         chaser.line = chase::Line(init_lines);
         let (rx, _ /*handle*/) = chaser.run_stream()?; //TODO handle errors in the stream using `handle`
@@ -240,9 +243,7 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                         }
                     }
                 }
-                RegularLine::PlayerUuid { nickname, uuid } => {
-                    player_uuids.insert(nickname, uuid);
-                }
+                RegularLine::PlayerUuid { nickname, uuid } => { player_uuids.insert(nickname, uuid); }
                 RegularLine::Unknown(_) => {} // ignore all other lines for now
             },
             Line::Unknown(_) => {} // ignore all other lines for now

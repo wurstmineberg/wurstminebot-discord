@@ -76,6 +76,20 @@ impl Person {
         })
     }
 
+    pub(crate) fn mention(&self) -> String {
+        match (self.snowflake, &self.wmbid) {
+            (Some(flake), _) => UserId(flake as u64).mention().to_string(),
+            (None, Some(wmb_id)) => {
+                if let Some(Json::String(name)) = self.data.clone().and_then(|mut person_data| person_data.get_mut("name").map(Json::take)) {
+                    name
+                } else {
+                    wmb_id.clone()
+                }
+            }
+            (None, None) => panic!("tried to mention user with no IDs"),
+        }
+    }
+
     pub fn minecraft_nick(&self) -> Option<&str> {
         self.data.as_ref()?.pointer("/minecraft/nicks/0")?.as_str()
     }
@@ -113,21 +127,5 @@ impl Person {
             .get_result(conn)
             .optional()
             .map_err(Error::from)
-    }
-}
-
-impl Mentionable for Person {
-    fn mention(&self) -> String {
-        match (self.snowflake, &self.wmbid) {
-            (Some(flake), _) => UserId(flake as u64).mention(),
-            (None, &Some(ref wmb_id)) => {
-                if let Some(Json::String(name)) = self.data.clone().and_then(|mut person_data| person_data.get_mut("name").map(Json::take)) {
-                    name
-                } else {
-                    wmb_id.clone()
-                }
-            }
-            (None, &None) => { panic!("tried to mention user with no IDs") }
-        }
     }
 }

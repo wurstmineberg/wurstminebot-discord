@@ -31,7 +31,8 @@ serenity_utils::ipc! {
             } else {
                 e.to_string()
             },
-            _ => e.to_string()
-        })
+            _ => e.to_string(),
+        })?;
+        Ok(())
     }
 }

@@ -7,15 +7,12 @@ edition = "2018"
 [[bin]]
 name = "wurstminebot"
 path = "src/main.rs"
-doc = false
-test = false
-bench = false
 
 [dependencies]
 chrono = "0.4"
-serenity = "0.9"
+serenity = "0.10"
 
-[dependencies.diesel]
+[dependencies.diesel] #TODO use something async instead?
 version = "1"
 features = ["postgres", "serde_json"]
 
@@ -29,8 +26,8 @@ branch = "riir"
 package = "minecraft"
 
 [dependencies.tokio]
-version = "0.2"
-features = ["fs", "macros", "rt-threaded"]
+version = "1"
+features = ["fs", "macros", "rt-multi-thread"]
 
 [dependencies.wurstminebot]
 path = "../wurstminebot"
