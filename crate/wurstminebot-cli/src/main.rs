@@ -7,7 +7,10 @@ use {
         env,
         iter,
         sync::Arc,
-        time::Duration,
+        time::{
+            Duration,
+            Instant,
+        },
     },
     chrono::prelude::*,
     diesel::prelude::*,
@@ -249,9 +252,22 @@ async fn main() -> Result<(), Error> {
         });
         // listen for Twitch chat messages
         tokio::spawn(async move {
-            if let Err(e) = twitch::listen_chat(ctx_fut_twitch.clone()).await {
+            let mut last_crash = Instant::now();
+            let mut wait_time = Duration::from_secs(1);
+            loop {
+                let e = match twitch::listen_chat(ctx_fut_twitch.clone()).await {
+                    Ok(never) => match never {},
+                    Err(e) => e,
+                };
+                if last_crash.elapsed() >= Duration::from_secs(60 * 60 * 24) {
+                    wait_time = Duration::from_secs(1); // reset wait time after no crash for a day
+                } else {
+                    wait_time *= 2; // exponential backoff
+                }
                 eprintln!("{}", e);
-                wurstminebot::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e, None).await;
+                wurstminebot::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e, Some(wait_time)).await;
+                sleep(wait_time).await; // wait before attempting to reconnect
+                last_crash = Instant::now();
             }
         });
         // connect to Discord
