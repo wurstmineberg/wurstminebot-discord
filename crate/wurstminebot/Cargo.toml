@@ -31,6 +31,10 @@ features = ["postgres", "serde_json"]
 version = "0.3"
 features = ["compat"]
 
+[dependencies.minecraft]
+git = "https://github.com/wurstmineberg/rust-minecraft-types"
+branch = "main"
+
 [dependencies.serde]
 version = "1"
 features = ["derive"]
