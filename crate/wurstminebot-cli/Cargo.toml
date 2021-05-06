@@ -16,6 +16,10 @@ serenity = "0.10"
 version = "1"
 features = ["postgres", "serde_json"]
 
+[dependencies.minecraft]
+git = "https://github.com/wurstmineberg/rust-minecraft-types"
+branch = "main"
+
 [dependencies.serenity-utils]
 git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
 branch = "main"

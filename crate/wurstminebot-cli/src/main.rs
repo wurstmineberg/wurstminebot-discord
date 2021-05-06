@@ -14,6 +14,7 @@ use {
     },
     chrono::prelude::*,
     diesel::prelude::*,
+    minecraft::chat::Chat,
     serenity::{
         async_trait,
         client::bridge::gateway::GatewayIntents,
@@ -34,10 +35,7 @@ use {
         commands,
         config::Config,
         log,
-        minecraft::{
-            self,
-            Chat,
-        },
+        minecraft::tellraw,
         people::Person,
         twitch,
         voice::{
@@ -143,12 +141,12 @@ impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         if msg.author.bot { return; } // ignore bots to prevent message loops
         if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
-            minecraft::tellraw(&World::new(world_name), "@a", Chat::from(format!(
+            tellraw(&World::new(world_name), "@a", Chat::from(format!(
                 "[Discord:#{}] <{}> {}",
                 if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
                 msg.author.name, //TODO replace with nickname, include username/discriminator if nickname is ambiguous
                 msg.content, //TODO format mentions and emoji
-            )).color(minecraft::Color::Aqua)).await.expect("chatsync failed");
+            )).color(minecraft::chat::Color::Aqua)).await.expect("chatsync failed");
         };
     }
 

@@ -3,6 +3,7 @@ use {
         collections::HashMap,
         convert::Infallible as Never,
     },
+    minecraft::chat::Chat,
     serde::Deserialize,
     serenity::prelude::*,
     serenity_utils::RwFuture,
@@ -19,10 +20,7 @@ use {
     crate::{
         Database,
         Error,
-        minecraft::{
-            self,
-            Chat,
-        },
+        minecraft::tellraw,
         people::Person,
     }
 };
@@ -61,7 +59,7 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
         for (twitch_nick, minecraft_nick) in &nick_map {
             runner.join(twitch_nick).await?; //TODO dynamically join/leave channels as nick map is updated
             for world in World::all_running().await? {
-                minecraft::tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::Color::Aqua)).await?;
+                tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::chat::Color::Aqua)).await?;
             }
         }
         loop {
@@ -71,11 +69,11 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
                     if channel_name.starts_with('#') {
                         if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
                             for world in World::all_running().await? {
-                                minecraft::tellraw(&world, minecraft_nick, Chat::from(format!(
+                                tellraw(&world, minecraft_nick, Chat::from(format!(
                                     "[Twitch] {} {}",
                                     if pm.is_action() { format!("* {}", pm.name()) } else { format!("<{}>", pm.name()) },
                                     pm.data(),
-                                )).color(minecraft::Color::Aqua)).await?;
+                                )).color(minecraft::chat::Color::Aqua)).await?;
                             }
                         } else {
                             return Err(Error::UnknownTwitchNick(channel_name.to_string()))
