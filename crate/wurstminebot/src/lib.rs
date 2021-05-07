@@ -69,6 +69,7 @@ pub enum Error {
     /// Returned by the user list handler if a user has no join date.
     MissingJoinDate,
     Serenity(serenity::Error),
+    Twitch(twitch_helix::Error),
     TwitchRunner(twitchchat::RunnerError),
     TwitchUserConfig(twitchchat::twitch::UserConfigError),
     #[from(ignore)]
@@ -94,6 +95,7 @@ impl fmt::Display for Error {
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::Serenity(e) => e.fmt(f),
+            Error::Twitch(e) => e.fmt(f),
             Error::TwitchRunner(e) => write!(f, "Twitch chat error: {}", e),
             Error::TwitchUserConfig(e) => write!(f, "error generating Twitch chat user config: {}", e),
             Error::UnknownTwitchNick(channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),

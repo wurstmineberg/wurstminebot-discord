@@ -2,6 +2,7 @@ use {
     std::{
         collections::HashMap,
         convert::Infallible as Never,
+        iter,
     },
     minecraft::chat::Chat,
     serde::Deserialize,
@@ -15,7 +16,6 @@ use {
             AsyncRunner,
             Status,
         },
-        twitch::UserConfigError,
     },
     crate::{
         Database,
@@ -30,17 +30,24 @@ use {
 pub struct Config {
     #[serde(default = "make_wurstminebot")]
     bot_username: String,
-    //TODO replace with client ID/secret
-    token: String,
+    #[serde(rename = "clientID")]
+    client_id: String,
+    client_secret: String,
 }
 
 impl Config {
-    fn user_config(&self) -> Result<UserConfig, UserConfigError> {
-        UserConfig::builder()
+    async fn user_config(&self) -> Result<UserConfig, Error> {
+        let api_client = twitch_helix::Client::new(
+            concat!("wurstminebot/", env!("CARGO_PKG_VERSION")),
+            self.client_id.clone(),
+            twitch_helix::Credentials::from_client_secret(&self.client_secret, iter::empty::<String>()),
+        )?;
+        let cfg = UserConfig::builder()
             .name(&self.bot_username)
-            .token(format!("oauth:{}", self.token))
+            .token(format!("oauth:{}", api_client.get_oauth_token(None).await?))
             .enable_all_capabilities()
-            .build()
+            .build()?;
+        Ok(cfg)
     }
 }
 
@@ -53,7 +60,7 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
         let nick_map = everyone.into_iter()
             .filter_map(|member| Some((member.twitch_nick()?.to_string(), member.minecraft_nick()?.to_string())))
             .collect::<HashMap<_, _>>();
-        let user_config = data.get::<crate::config::Config>().expect("missing config").twitch.user_config()?;
+        let user_config = data.get::<crate::config::Config>().expect("missing config").twitch.user_config().await?;
         let connector = twitchchat::connector::tokio::Connector::twitch()?;
         let mut runner = AsyncRunner::connect(connector, &user_config).await?;
         for (twitch_nick, minecraft_nick) in &nick_map {

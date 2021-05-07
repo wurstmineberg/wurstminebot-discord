@@ -1758,6 +1758,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "twitch_helix"
+version = "0.4.1"
+source = "git+https://github.com/fenhl/rust-twitch-helix?branch=main#0fd080c13599dfc6a72a1123410d069974567f8d"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "derive_more",
+ "futures 0.3.14",
+ "itertools",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "twitchchat"
 version = "0.14.8"
 source = "git+https://github.com/museun/twitchchat?rev=6292ca3c523bcb31a2c746aaae88439fd0fb4c55#6292ca3c523bcb31a2c746aaae88439fd0fb4c55"
@@ -2103,6 +2120,7 @@ dependencies = [
  "serenity-utils",
  "tokio",
  "tokio-stream",
+ "twitch_helix",
  "twitchchat",
  "uuid",
 ]

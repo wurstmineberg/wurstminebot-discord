@@ -56,6 +56,10 @@ features = ["fs", "macros", "rt-multi-thread"]
 version = "0.1"
 features = ["io-util"]
 
+[dependencies.twitch_helix]
+git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
+branch = "main"
+
 [dependencies.twitchchat]
 #version = "0.14"
 git = "https://github.com/museun/twitchchat" #TODO switch back to crates.io once tokio 1 is supported
