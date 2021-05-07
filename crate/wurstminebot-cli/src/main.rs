@@ -280,8 +280,8 @@ async fn main() -> Result<(), Error> {
                 } else {
                     wait_time *= 2; // exponential backoff
                 }
-                eprintln!("{}", e);
-                wurstminebot::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e, Some(wait_time)).await;
+                eprintln!("{} ({:?})", e, e);
+                //wurstminebot::notify_thread_crash(ctx_fut_twitch.clone(), format!("Twitch"), e, Some(wait_time)).await; //TODO uncomment after https://github.com/museun/twitchchat/issues/237 is fixed
                 sleep(wait_time).await; // wait before attempting to reconnect
                 last_crash = Instant::now();
             }
