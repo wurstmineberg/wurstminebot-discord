@@ -141,12 +141,25 @@ impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         if msg.author.bot { return; } // ignore bots to prevent message loops
         if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
-            tellraw(&World::new(world_name), "@a", Chat::from(format!(
+            let mut chat = Chat::from(format!(
                 "[Discord:#{}] <{}> {}",
                 if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
                 msg.author.name, //TODO replace with nickname, include username/discriminator if nickname is ambiguous
                 msg.content, //TODO format mentions and emoji
-            )).color(minecraft::chat::Color::Aqua)).await.expect("chatsync failed");
+            ));
+            chat.color(minecraft::chat::Color::Aqua);
+            for attachment in msg.attachments {
+                chat.add_extra(Chat::from(" "));
+                chat.add_extra({
+                    let mut extra = Chat::from(format!("[{}]", attachment.filename));
+                    extra.color(minecraft::chat::Color::Blue);
+                    extra.underlined();
+                    extra.on_click(minecraft::chat::ClickEvent::OpenUrl(attachment.url.clone()));
+                    extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(attachment.url))));
+                    extra
+                });
+            }
+            tellraw(&World::new(world_name), "@a", &chat).await.expect("chatsync failed");
         };
     }
 
