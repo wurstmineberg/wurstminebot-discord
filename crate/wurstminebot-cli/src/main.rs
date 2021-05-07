@@ -142,14 +142,19 @@ impl EventHandler for Handler {
         if msg.author.bot { return; } // ignore bots to prevent message loops
         if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
             let mut chat = Chat::from(format!(
-                "[Discord:#{}] <{}> {}",
+                "[Discord:#{}] ",
                 if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
-                msg.author.name, //TODO replace with nickname, include username/discriminator if nickname is ambiguous
-                msg.content, //TODO format mentions and emoji
             ));
             chat.color(minecraft::chat::Color::Aqua);
+            chat.add_extra({
+                let mut extra = Chat::from(format!("<{}>", msg.member.as_ref().and_then(|member| member.nick.as_ref()).unwrap_or(&msg.author.name)));
+                extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
+                extra
+            });
+            chat.add_extra(" ");
+            chat.add_extra(Chat::from(msg.content)); //TODO format mentions and emoji
             for attachment in msg.attachments {
-                chat.add_extra(Chat::from(" "));
+                chat.add_extra(" ");
                 chat.add_extra({
                     let mut extra = Chat::from(format!("[{}]", attachment.filename));
                     extra.color(minecraft::chat::Color::Blue);
