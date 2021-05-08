@@ -222,6 +222,7 @@ async fn main() -> Result<(), Error> {
                 GatewayIntents::DIRECT_MESSAGES
                 | GatewayIntents::DIRECT_MESSAGE_REACTIONS
                 | GatewayIntents::GUILDS
+                | GatewayIntents::GUILD_PRESENCES // required for guild member data in guild_create
                 | GatewayIntents::GUILD_MEMBERS
                 | GatewayIntents::GUILD_BANS
                 | GatewayIntents::GUILD_VOICE_STATES
