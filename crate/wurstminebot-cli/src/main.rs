@@ -57,6 +57,7 @@ impl Handler {
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
+        println!("Ready");
         if let Some(tx) = self.0.lock().await.take() {
             if let Err(_) = tx.send(ctx.clone()) {
                 panic!("failed to send context")
@@ -73,13 +74,15 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn guild_ban_addition(&self, ctx: Context, _: GuildId, user: User) {
+    async fn guild_ban_addition(&self, ctx: Context, guild_id: GuildId, user: User) {
+        println!("User {} was banned from {}", user.name, guild_id);
         let data = ctx.data.read().await;
         let conn = data.get::<Database>().expect("missing database connection").lock().await;
         Person::remove_discord_data(&conn, user).expect("failed to remove Discord data for banned user");
     }
 
     async fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
+        println!("User {} was unbanned from {}", user.name, guild_id);
         let member = &guild_id.member(&ctx, user).await.expect("failed to get unbanned guild member");
         let data = ctx.data.read().await;
         let conn = data.get::<Database>().expect("missing database connection").lock().await;
@@ -87,7 +90,7 @@ impl EventHandler for Handler {
     }
 
     async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
-        println!("Connected to {}", guild.name);
+        println!("Connected to {}, {} members total, {} members in list", guild.name, guild.member_count, guild.members.len());
         let mut chan_map = <VoiceStates as TypeMapKey>::Value::default();
         for (user_id, voice_state) in guild.voice_states {
             if let Some(channel_id) = voice_state.channel_id {
@@ -112,25 +115,29 @@ impl EventHandler for Handler {
         voice::dump_info(chan_map).expect("failed to update voice info");
     }
 
-    async fn guild_member_addition(&self, ctx: Context, _: GuildId, member: Member) {
+    async fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, member: Member) {
+        println!("User {} joined {}", member.user.name, guild_id);
         let data = ctx.data.read().await;
         let conn = data.get::<Database>().expect("missing database connection").lock().await;
         Person::update_discord_data(&conn, &member).expect("failed to add Discord data for new guild member");
     }
 
-    async fn guild_member_removal(&self, ctx: Context, _: GuildId, user: User, _: Option<Member>) {
+    async fn guild_member_removal(&self, ctx: Context, guild_id: GuildId, user: User, _: Option<Member>) {
+        println!("User {} left {}", user.name, guild_id);
         let data = ctx.data.read().await;
         let conn = data.get::<Database>().expect("missing database connection").lock().await;
         Person::remove_discord_data(&conn, user).expect("failed to remove Discord data for removed guild member");
     }
 
     async fn guild_member_update(&self, ctx: Context, _: Option<Member>, member: Member) {
+        println!("Member data for {} updated", member.user.name);
         let data = ctx.data.read().await;
         let conn = data.get::<Database>().expect("missing database connection").lock().await;
         Person::update_discord_data(&conn, &member).expect("failed to reflect guild member info update in database");
     }
 
     async fn guild_members_chunk(&self, ctx: Context, chunk: GuildMembersChunkEvent) {
+        println!("Received chunk of members for guild {}", chunk.guild_id);
         let data = ctx.data.read().await;
         let conn = data.get::<Database>().expect("missing database connection").lock().await;
         for member in chunk.members.values() {
@@ -168,7 +175,8 @@ impl EventHandler for Handler {
         };
     }
 
-    async fn voice_state_update(&self, ctx: Context, _: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
+    async fn voice_state_update(&self, ctx: Context, guild_id: Option<GuildId>, _old: Option<VoiceState>, new: VoiceState) {
+        println!("Voice states in guild {:?} updated", guild_id);
         let user = new.user_id.to_user(&ctx).await.expect("failed to get user info");
         let mut data = ctx.data.write().await;
         let chan_map = data.get_mut::<VoiceStates>().expect("missing voice states map");
