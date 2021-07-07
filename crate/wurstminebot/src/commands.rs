@@ -140,9 +140,14 @@ async fn quit(ctx: &Context, _: &Message, _: Args) -> CommandResult {
 }
 
 #[command]
+#[owners_only] //TODO allow any admin to use this command
 async fn update(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
     if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
+        msg.reply(ctx, MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…")).await?;
         World::new(world_name).update(VersionSpec::LatestRelease).await?;
+        msg.reply_ping(ctx, "Done!").await?;
+    } else {
+        msg.reply(ctx, "This channel has no associated Minecraft world.").await?;
     }
     Ok(())
 }
@@ -170,6 +175,7 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
     ping,
     poll,
     quit,
+    update,
     veto,
 )]
 struct Main;
