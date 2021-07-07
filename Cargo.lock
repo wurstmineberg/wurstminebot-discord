@@ -901,8 +901,8 @@ dependencies = [
 
 [[package]]
 name = "minecraft"
-version = "6.1.1"
-source = "git+https://github.com/wurstmineberg/systemd-minecraft?branch=riir#66a533016184c13814b68cb2fc2917a9ae8b510f"
+version = "6.1.2"
+source = "git+https://github.com/wurstmineberg/systemd-minecraft?branch=riir#095acd6356aa22c3a7a3bcbef78975e4442f04d6"
 dependencies = [
  "async-trait",
  "crossbeam-channel",
@@ -2283,7 +2283,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "minecraft 0.1.2",
- "minecraft 6.1.1",
+ "minecraft 6.1.2",
  "pin-utils",
  "rand 0.8.4",
  "regex",
@@ -2305,7 +2305,7 @@ dependencies = [
  "chrono",
  "diesel",
  "minecraft 0.1.2",
- "minecraft 6.1.1",
+ "minecraft 6.1.2",
  "serenity",
  "serenity-utils",
  "tokio",
