@@ -269,6 +269,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 
 [[package]]
+name = "camino"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52d74260d9bf6944e2208aa46841b4b8f0d7ffc0849a06837b2f510337f86b2b"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "cargo-platform"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbdb825da8a5df079a43676dbe042702f1707b1109f713a01420fbb4cc71fa27"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c297bd3135f558552f99a0daa180876984ea2c4ffa7470314540dff8c654109a"
+dependencies = [
+ "camino",
+ "cargo-platform",
+ "semver",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1620,6 +1651,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "semver"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "568a8e6258aa33c13358f81fd834adb854c6f7c9468520910a9b1e8fac068012"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.130"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1692,7 +1732,6 @@ dependencies = [
 [[package]]
 name = "serenity-utils"
 version = "0.3.3"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#d333a0d3f222c91f2fdeed4ddc3537ed34b6da28"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -1709,8 +1748,9 @@ dependencies = [
 [[package]]
 name = "serenity-utils-derive"
 version = "0.3.3"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#d333a0d3f222c91f2fdeed4ddc3537ed34b6da28"
 dependencies = [
+ "cargo_metadata",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -2477,7 +2517,6 @@ dependencies = [
  "lazy_static",
  "minecraft 0.1.2",
  "minecraft 6.1.2",
- "pin-utils",
  "rand 0.8.4",
  "regex",
  "serde",
@@ -2495,7 +2534,6 @@ dependencies = [
 name = "wurstminebot-cli"
 version = "0.1.0"
 dependencies = [
- "chrono",
  "diesel",
  "minecraft 0.1.2",
  "minecraft 6.1.2",

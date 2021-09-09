@@ -4,37 +4,32 @@
 use {
     std::{
         collections::BTreeMap,
-        env,
-        iter,
         sync::Arc,
         time::{
             Duration,
             Instant,
         },
     },
-    chrono::prelude::*,
     diesel::prelude::*,
     minecraft::chat::Chat,
     serenity::{
         async_trait,
         client::bridge::gateway::GatewayIntents,
-        framework::standard::StandardFramework,
-        http::Http,
         model::prelude::*,
         prelude::*,
     },
     serenity_utils::{
         RwFuture,
-        ShardManagerContainer,
+        builder::ErrorNotifier,
     },
     systemd_minecraft::World,
     tokio::time::sleep,
     wurstminebot::{
+        DEV,
         Database,
         Error,
         commands,
         config::Config,
-        log,
         minecraft::tellraw,
         people::Person,
         twitch,
@@ -44,6 +39,7 @@ use {
         },
     },
 };
+#[cfg(unix)] use wurstminebot::log;
 
 struct Handler(Arc<Mutex<Option<tokio::sync::oneshot::Sender<Context>>>>);
 
@@ -202,85 +198,43 @@ impl EventHandler for Handler {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-    let mut args = env::args().peekable();
-    let _ = args.next(); // ignore executable name
-    if args.peek().is_some() {
-        println!("{}", wurstminebot::ipc::send(args)?);
-    } else {
-        // read config
-        let config = Config::new().await?;
-        let (handler, rx) = Handler::new();
-        let ctx_fut_ipc = rx.clone();
-        let ctx_fut_log = rx.clone();
-        let ctx_fut_twitch = rx;
-        let owners = iter::once(Http::new_with_token(&config.wurstminebot.bot_token).get_current_application_info().await?.owner.id).collect();
-        let mut client = Client::builder(&config.wurstminebot.bot_token)
-            .event_handler(handler)
-            .intents(
-                GatewayIntents::DIRECT_MESSAGES
-                | GatewayIntents::DIRECT_MESSAGE_REACTIONS
-                | GatewayIntents::GUILDS
-                | GatewayIntents::GUILD_PRESENCES // required for guild member data in guild_create
-                | GatewayIntents::GUILD_MEMBERS
-                | GatewayIntents::GUILD_BANS
-                | GatewayIntents::GUILD_VOICE_STATES
-                | GatewayIntents::GUILD_MESSAGES
-            )
-            .framework(StandardFramework::new()
-                .configure(|c| c
-                    .with_whitespace(true) // allow ! command
-                    .case_insensitivity(true) // allow !Command
-                    .no_dm_prefix(true) // allow /msg @wurstminebot command (also allows “did not understand DM” error messages to work)
-                    .on_mention(Some(UserId(388416898825584640))) // allow @wurstminebot command
-                    .owners(owners)
-                    .prefix("!") // allow !command
-                )
-                .after(|ctx, msg, command_name, result| Box::pin(async move {
-                    if let Err(why) = result {
-                        println!("{}: Command '{}' returned error {:?}", Utc::now().format("%Y-%m-%d %H:%M:%S"), command_name, why);
-                        let _ = msg.reply(ctx, &format!("an error occurred while handling your command: {:?}", why)).await; //TODO notify an admin if this errors
-                    }
-                }))
-                .unrecognised_command(|ctx, msg, _| Box::pin(async move {
-                    if msg.author.bot { return } // ignore bots to prevent message loops
-                    if msg.is_private() {
-                        // reply when command isn't recognized
-                        msg.reply(ctx, "sorry, I don't understand that message").await.expect("failed to reply to unrecognized DM");
-                    }
-                }))
-                .help(&commands::HELP_COMMAND)
-                .group(&commands::GROUP)
-            )
-            .type_map_insert::<Config>(config)
-            .type_map_insert::<Database>(Mutex::new(PgConnection::establish("postgres:///wurstmineberg")?))
-            .type_map_insert::<VoiceStates>(BTreeMap::default())
-            .await?;
-        client.data.write().await.insert::<ShardManagerContainer>(Arc::clone(&client.shard_manager));
-        // listen for IPC commands
-        tokio::spawn(async move {
-            match wurstminebot::ipc::listen(ctx_fut_ipc.clone(), &|ctx, thread_kind, e| wurstminebot::notify_thread_crash(ctx, thread_kind, e, None)).await {
-                Ok(never) => match never {},
-                Err(e) => {
+#[serenity_utils::main(ipc = "wurstminebot::ipc")]
+async fn main() -> Result<serenity_utils::Builder, Error> {
+    let config = Config::new().await?;
+    Ok(serenity_utils::builder(config.wurstminebot.bot_token.clone()).await?
+        .error_notifier(ErrorNotifier::Channel(DEV))
+        .raw_event_handler_with_ctx(
+            Handler::new,
+            GatewayIntents::GUILD_BANS
+            | GatewayIntents::GUILDS
+            | GatewayIntents::GUILD_PRESENCES // required for guild member data in guild_create
+            | GatewayIntents::GUILD_MEMBERS
+            | GatewayIntents::GUILD_MESSAGES
+            | GatewayIntents::DIRECT_MESSAGES
+            | GatewayIntents::GUILD_VOICE_STATES,
+        )
+        .commands(Some("!"), &commands::GROUP)
+        .data::<Config>(config)
+        .data::<Database>(Mutex::new(PgConnection::establish("postgres:///wurstmineberg")?))
+        .data::<VoiceStates>(BTreeMap::default())
+        .task(|#[cfg_attr(not(unix), allow(unused))] ctx_fut, #[cfg_attr(not(unix), allow(unused))] notify_thread_crash| async move {
+            #[cfg(unix)] {
+                // follow the Minecraft log
+                if let Err(e) = log::handle(ctx_fut).await {
                     eprintln!("{}", e);
-                    wurstminebot::notify_thread_crash(ctx_fut_ipc.clone(), format!("IPC"), e, None).await;
+                    wurstminebot::notify_thread_crash(format!("log"), e, None).await;
                 }
             }
-        });
-        // follow the Minecraft log
-        tokio::spawn(async move {
-            if let Err(e) = log::handle(ctx_fut_log.clone()).await {
-                eprintln!("{}", e);
-                wurstminebot::notify_thread_crash(ctx_fut_log.clone(), format!("log"), e, None).await;
+            #[cfg(not(unix))] {
+                eprintln!("warning: Minecraft log analysis is only supported on cfg(unix) because of https://github.com/lloydmeta/chase-rs/issues/6");
             }
-        });
-        // listen for Twitch chat messages
-        tokio::spawn(async move {
+        })
+        .task(|ctx_fut, _ /*notify_thread_crash*/| async move {
+            // listen for Twitch chat messages
             let mut last_crash = Instant::now();
             let mut wait_time = Duration::from_secs(1);
             loop {
-                let e = match twitch::listen_chat(ctx_fut_twitch.clone()).await {
+                let e = match twitch::listen_chat(ctx_fut.clone()).await {
                     Ok(never) => match never {},
                     Err(e) => e,
                 };
@@ -294,10 +248,6 @@ async fn main() -> Result<(), Error> {
                 sleep(wait_time).await; // wait before attempting to reconnect
                 last_crash = Instant::now();
             }
-        });
-        // connect to Discord
-        client.start_autosharded().await?;
-        sleep(Duration::from_secs(1)).await; // wait to make sure websockets can be closed cleanly
-    }
-    Ok(())
+        })
+    )
 }

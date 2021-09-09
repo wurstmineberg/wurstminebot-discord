@@ -9,7 +9,6 @@ name = "wurstminebot"
 path = "src/main.rs"
 
 [dependencies]
-chrono = "0.4"
 serenity = "0.10"
 
 [dependencies.diesel] #TODO use something async instead?
@@ -21,8 +20,9 @@ git = "https://github.com/wurstmineberg/rust-minecraft-types"
 branch = "main"
 
 [dependencies.serenity-utils]
-git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
-branch = "main"
+#git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+#branch = "main"
+path = "C:\\Users\\fenhl\\git\\github.com\\fenhl\\serenity-utils\\stage\\crate\\serenity-utils" #TODO push changes
 
 [dependencies.systemd_minecraft]
 git = "https://github.com/wurstmineberg/systemd-minecraft"

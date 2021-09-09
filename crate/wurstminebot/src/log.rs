@@ -14,6 +14,7 @@ use {
     futures::{
         compat::Stream01CompatExt as _,
         future::try_join_all,
+        pin_mut,
         prelude::*,
         stream::{
             self,
@@ -22,7 +23,6 @@ use {
     },
     itertools::Itertools as _,
     lazy_static::lazy_static,
-    pin_utils::pin_mut,
     regex::Regex,
     serenity::{
         prelude::*,

@@ -11,7 +11,6 @@ use {
         fmt,
         io,
         path::Path,
-        time::Duration,
     },
     derive_more::From,
     diesel::prelude::*,
@@ -19,14 +18,13 @@ use {
         model::prelude::*,
         prelude::*,
     },
-    serenity_utils::RwFuture,
 };
 
 pub mod commands;
 pub mod config;
 pub mod emoji;
 pub mod ipc;
-pub mod log;
+#[cfg(unix)] pub mod log;
 pub mod minecraft;
 pub mod parse;
 pub mod people;
@@ -41,7 +39,7 @@ pub const IPC_ADDR: &str = "127.0.0.1:18809";
 /// The guild ID for the Wurstmineberg guild.
 pub const WURSTMINEBERG: GuildId = GuildId(88318761228054528);
 
-const DEV: ChannelId = ChannelId(506905544901001228);
+pub const DEV: ChannelId = ChannelId(506905544901001228);
 
 /// The directory where all Wurstmineberg-related files are located: `/opt/wurstmineberg`.
 pub fn base_path() -> &'static Path { //TODO make this a constant when stable
@@ -60,6 +58,7 @@ pub enum Error {
     Ipc(crate::ipc::Error),
     Join(tokio::task::JoinError),
     Json(serde_json::Error),
+    #[cfg(unix)]
     Log(log::Error),
     #[from(ignore)]
     MalformedTwitchChannelName(String),
@@ -89,6 +88,7 @@ impl fmt::Display for Error {
             Error::Ipc(e) => e.fmt(f),
             Error::Join(e) => e.fmt(f),
             Error::Json(e) => write!(f, "JSON error: {}", e),
+            #[cfg(unix)]
             Error::Log(e) => e.fmt(f),
             Error::MalformedTwitchChannelName(channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
             Error::Minecraft(e) => e.fmt(f),
@@ -134,16 +134,4 @@ pub struct Database;
 
 impl TypeMapKey for Database {
     type Value = Mutex<PgConnection>;
-}
-
-pub async fn notify_thread_crash(ctx: RwFuture<Context>, thread_kind: String, e: impl Into<Error>, auto_retry: Option<Duration>) {
-    let ctx = ctx.read().await;
-    let e = e.into();
-    DEV.say(&*ctx, format!(
-        "{} thread crashed: {} (`{:?}`), {}",
-        thread_kind,
-        e,
-        e,
-        if let Some(auto_retry) = auto_retry { format!("auto-retrying in `{:?}`", auto_retry) } else { format!("**not** auto-retrying") },
-    )).await.expect("failed to send thread crash notification");
 }

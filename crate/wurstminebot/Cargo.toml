@@ -7,16 +7,10 @@ edition = "2018"
 [dependencies]
 itertools = "0.10"
 lazy_static = "1"
-pin-utils = "0.1"
 rand = "0.8"
 regex = "1"
 serde_json = "1"
 serenity = "0.10"
-uuid = "0.8"
-
-[dependencies.chase]
-version = "0.1"
-features = ["stream"]
 
 [dependencies.derive_more]
 version = "0.99"
@@ -27,10 +21,6 @@ features = ["from"]
 version = "1"
 features = ["postgres", "serde_json"]
 
-[dependencies.futures]
-version = "0.3"
-features = ["compat"]
-
 [dependencies.minecraft]
 git = "https://github.com/wurstmineberg/rust-minecraft-types"
 branch = "main"
@@ -40,8 +30,9 @@ version = "1"
 features = ["derive"]
 
 [dependencies.serenity-utils]
-git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
-branch = "main"
+#git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
+#branch = "main"
+path = "C:\\Users\\fenhl\\git\\github.com\\fenhl\\serenity-utils\\stage\\crate\\serenity-utils" #TODO push changes
 
 [dependencies.systemd_minecraft]
 git = "https://github.com/wurstmineberg/systemd-minecraft"
@@ -51,10 +42,6 @@ package = "minecraft"
 [dependencies.tokio]
 version = "1.3"
 features = ["fs", "macros", "rt-multi-thread"]
-
-[dependencies.tokio-stream]
-version = "0.1"
-features = ["io-util"]
 
 [dependencies.twitch_helix]
 git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
@@ -66,3 +53,18 @@ git = "https://github.com/museun/twitchchat" #TODO switch back to crates.io once
 rev = "6292ca3c523bcb31a2c746aaae88439fd0fb4c55"
 default-features = false
 features = ["async", "tokio", "tokio-rustls", "tokio-util", "webpki-roots"]
+
+[target.'cfg(unix)'.dependencies]
+uuid = "0.8"
+
+[target.'cfg(unix)'.dependencies.chase]
+version = "0.1"
+features = ["stream"]
+
+[target.'cfg(unix)'.dependencies.futures]
+version = "0.3"
+features = ["compat"]
+
+[target.'cfg(unix)'.dependencies.tokio-stream]
+version = "0.1"
+features = ["io-util"]
