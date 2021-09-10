@@ -481,7 +481,7 @@ dependencies = [
 [[package]]
 name = "discord-message-parser"
 version = "0.1.0"
-source = "git+https://github.com/fenhl/discord-message-parser?branch=main#8a4360c189c3aa2cef645c96207ebbf536505481"
+source = "git+https://github.com/fenhl/discord-message-parser?branch=main#1226f3470c2ab73d71d4a2a469cdea569ffe55cb"
 dependencies = [
  "chrono",
  "derivative",
