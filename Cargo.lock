@@ -424,6 +424,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
 
 [[package]]
+name = "derivative"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "derive_more"
 version = "0.99.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -465,6 +476,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "discord-message-parser"
+version = "0.1.0"
+source = "git+https://github.com/fenhl/discord-message-parser?branch=main#8a4360c189c3aa2cef645c96207ebbf536505481"
+dependencies = [
+ "chrono",
+ "derivative",
+ "once_cell",
+ "regex",
+ "serenity",
 ]
 
 [[package]]
@@ -2535,6 +2558,7 @@ name = "wurstminebot-cli"
 version = "0.1.0"
 dependencies = [
  "diesel",
+ "discord-message-parser",
  "minecraft 0.1.2",
  "minecraft 6.1.2",
  "serenity",

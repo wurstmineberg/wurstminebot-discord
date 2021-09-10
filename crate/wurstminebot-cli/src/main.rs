@@ -4,6 +4,8 @@
 use {
     std::{
         collections::BTreeMap,
+        future::Future,
+        pin::Pin,
         sync::Arc,
         time::{
             Duration,
@@ -11,6 +13,11 @@ use {
         },
     },
     diesel::prelude::*,
+    discord_message_parser::{
+        MessagePart,
+        TimestampStyle,
+        serenity::MessageExt as _,
+    },
     minecraft::chat::Chat,
     serenity::{
         async_trait,
@@ -142,6 +149,71 @@ impl EventHandler for Handler {
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
+        fn discord_to_minecraft<'a>(ctx: &'a Context, msg: &'a Message, chat: &'a mut Chat, part: MessagePart<'a>) -> Pin<Box<dyn Future<Output = serenity::Result<()>> + Send + 'a>> {
+            Box::pin(async move {
+                match part {
+                    MessagePart::Empty => {}
+                    MessagePart::Nested(parts) => for part in parts {
+                        discord_to_minecraft(ctx, msg, chat, part).await?;
+                    },
+                    MessagePart::PlainText(text) => { chat.add_extra(text); }
+                    MessagePart::UserMention { user, nickname_mention: _ } => {
+                        let (tag, nickname) = if let Some(guild_id) = msg.guild_id {
+                            let member = guild_id.member(ctx, user).await?;
+                            (Some(member.user.tag()), member.nick)
+                        } else {
+                            (None, None)
+                        };
+                        let (tag, nickname) = match (tag, nickname) {
+                            (Some(tag), Some(nickname)) => (tag, nickname),
+                            (tag, nickname) => {
+                                let user = user.to_user(ctx).await?;
+                                (tag.unwrap_or_else(|| user.tag()), nickname.unwrap_or(user.name))
+                            }
+                        };
+                        let mut extra = Chat::from(format!("@{}", nickname));
+                        //TODO add mention to chat input on click? (blue + underline)
+                        extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(tag))));
+                        chat.add_extra(extra);
+                    }
+                    MessagePart::ChannelMention(channel) => {
+                        let extra = Chat::from(match channel.to_channel(ctx).await? {
+                            Channel::Guild(channel) => format!("#{}", channel.name),
+                            Channel::Private(dm) => dm.name(),
+                            Channel::Category(category) => category.name,
+                            _ => panic!("unexpected channel type"),
+                        });
+                        //TODO open channel in browser on click? (blue + underline)
+                        chat.add_extra(extra);
+                    }
+                    MessagePart::RoleMention(role) => {
+                        let mut extra = Chat::from(format!("<@&{}>", role));
+                        if let Some(guild_id) = msg.guild_id {
+                            if let Some(role) = guild_id.roles(ctx).await?.get(&role) {
+                                extra = Chat::from(format!("@{}", role.name));
+                                //TODO add mention to chat input on click? (blue + underline)
+                            }
+                        }
+                        chat.add_extra(extra);
+                    }
+                    MessagePart::CustomEmoji(emoji) => {
+                        chat.add_extra(format!(":{}:", emoji.name));
+                    }
+                    MessagePart::Timestamp { timestamp, style } => {
+                        let mut extra = Chat::from(style.unwrap_or_default().fmt(timestamp)); //TODO convert to user timezone? (Would require replacing @a with individual commands)
+                        extra.underlined();
+                        if let Some(TimestampStyle::RelativeTime) = style {
+                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string())))); //TODO show user timezone if converted
+                        } else {
+                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from("UTC")))); //TODO show user timzeone if converted
+                        }
+                        chat.add_extra(extra);
+                    }
+                }
+                Ok(())
+            })
+        }
+
         if msg.author.bot { return; } // ignore bots to prevent message loops
         if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
             let mut chat = Chat::from(format!(
@@ -155,7 +227,7 @@ impl EventHandler for Handler {
                 extra
             });
             chat.add_extra(" ");
-            chat.add_extra(Chat::from(msg.content)); //TODO format mentions and emoji
+            discord_to_minecraft(&ctx, &msg, &mut chat, msg.parse()).await.expect("failed to format Discord message for Minecraft");
             for attachment in msg.attachments {
                 chat.add_extra(" ");
                 chat.add_extra({

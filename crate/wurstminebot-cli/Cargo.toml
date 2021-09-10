@@ -15,6 +15,10 @@ serenity = "0.10"
 version = "1"
 features = ["postgres", "serde_json"]
 
+[dependencies.discord-message-parser]
+git = "https://github.com/fenhl/discord-message-parser"
+branch = "main"
+
 [dependencies.minecraft]
 git = "https://github.com/wurstmineberg/rust-minecraft-types"
 branch = "main"
