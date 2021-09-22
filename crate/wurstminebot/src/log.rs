@@ -57,6 +57,7 @@ pub enum Error {
     Chase(ChaseError),
     FollowEnded,
     Io(io::Error),
+    Minecraft(systemd_minecraft::Error),
     NoWorlds, //TODO remove once `handle` automatically handles new worlds as they are created
     Serenity(serenity::Error),
     Task(JoinError),
@@ -75,6 +76,7 @@ impl fmt::Display for Error {
             Error::Chase(e) => write!(f, "error in log handler: {}", e),
             Error::FollowEnded => write!(f, "log handler returned unexpectedly"),
             Error::Io(e) => write!(f, "I/O error in log handler: {}", e),
+            Error::Minecraft(e) => e.fmt(f),
             Error::NoWorlds => write!(f, "failed to start log handler: no worlds configured"),
             Error::Serenity(e) => write!(f, "error in log handler: {}", e),
             Error::Task(e) => write!(f, "error in log handler: {}", e),
