@@ -155,11 +155,11 @@ async fn update(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 #[command]
 async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
     let data = ctx.data.read().await;
-    let conn = data.get::<Database>().expect("missing database connection").lock().await;
+    let pool = data.get::<Database>().expect("missing database connection");
     let mut cmd = args.message();
     let mut builder = MessageBuilder::default();
     builder.push("invite for ");
-    match parse::eat_person(&mut cmd, &conn)? {
+    match parse::eat_person(&mut cmd, &pool).await? {
         Some(person) => { builder.push(person.mention()); } //TODO make sure remaining command is empty (or only whitespace), validate veto period, kick person from guild and remove from whitelist
         None => { builder.push_mono_safe(cmd); }
     }

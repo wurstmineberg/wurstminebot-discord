@@ -3,8 +3,6 @@
 #![deny(rust_2018_idioms, unused, unused_crate_dependencies, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
 #![forbid(unsafe_code)]
 
-#[macro_use] extern crate diesel;
-
 use {
     std::{
         env,
@@ -13,7 +11,7 @@ use {
         path::Path,
     },
     derive_more::From,
-    diesel::prelude::*,
+    sqlx::PgPool,
     serenity::{
         model::prelude::*,
         prelude::*,
@@ -28,10 +26,8 @@ pub mod ipc;
 pub mod minecraft;
 pub mod parse;
 pub mod people;
-pub mod schema;
 pub mod twitch;
 mod util;
-pub mod voice;
 
 /// The address and port where the bot listens for IPC commands.
 pub const IPC_ADDR: &str = "127.0.0.1:18809";
@@ -51,8 +47,6 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
 pub enum Error {
     Annotated(String, Box<Error>),
     ChannelIdParse(ChannelIdParseError),
-    Diesel(diesel::result::Error),
-    DieselConnection(ConnectionError),
     Envar(env::VarError),
     Io(io::Error),
     Ipc(crate::ipc::Error),
@@ -68,6 +62,7 @@ pub enum Error {
     /// Returned by the user list handler if a user has no join date.
     MissingJoinDate,
     Serenity(serenity::Error),
+    Sql(sqlx::Error),
     Twitch(twitch_helix::Error),
     TwitchRunner(twitchchat::RunnerError),
     TwitchUserConfig(twitchchat::twitch::UserConfigError),
@@ -81,8 +76,6 @@ impl fmt::Display for Error {
         match self {
             Error::Annotated(msg, e) => write!(f, "{}: {}", msg, e),
             Error::ChannelIdParse(e) => e.fmt(f),
-            Error::Diesel(e) => e.fmt(f),
-            Error::DieselConnection(e) => e.fmt(f),
             Error::Envar(e) => e.fmt(f),
             Error::Io(e) => write!(f, "I/O error: {}", e),
             Error::Ipc(e) => e.fmt(f),
@@ -95,6 +88,7 @@ impl fmt::Display for Error {
             Error::MissingContext => write!(f, "Serenity context not available before ready event"),
             Error::MissingJoinDate => write!(f, "encountered user without join date"),
             Error::Serenity(e) => e.fmt(f),
+            Error::Sql(e) => e.fmt(f),
             Error::Twitch(e) => e.fmt(f),
             Error::TwitchRunner(e) => write!(f, "Twitch chat error: {}", e),
             Error::TwitchUserConfig(e) => write!(f, "error generating Twitch chat user config: {}", e),
@@ -103,6 +97,8 @@ impl fmt::Display for Error {
         }
     }
 }
+
+impl std::error::Error for Error {}
 
 /// A helper trait for annotating errors with more informative error messages.
 pub trait IntoResultExt {
@@ -133,5 +129,5 @@ impl<T, E: IntoResultExt> IntoResultExt for Result<T, E> {
 pub struct Database;
 
 impl TypeMapKey for Database {
-    type Value = Mutex<PgConnection>;
+    type Value = PgPool;
 }

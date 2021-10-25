@@ -1,12 +1,10 @@
-#![allow(missing_docs)] //TODO
-
 use {
     std::str::FromStr as _,
-    diesel::prelude::*,
     itertools::Itertools as _,
-    regex::Regex,
+    lazy_regex::regex_captures,
     serenity::model::prelude::*,
-    crate::people::Person,
+    sqlx::PgPool,
+    crate::people::PersonId,
 };
 
 pub fn eat_optional_prefix(cmd: &mut &str, prefix: char) -> bool {
@@ -18,34 +16,32 @@ pub fn eat_optional_prefix(cmd: &mut &str, prefix: char) -> bool {
     }
 }
 
-pub fn eat_person(cmd: &mut &str, conn: &PgConnection) -> QueryResult<Option<Person>> {
-    let original_cmd = *cmd;
+pub async fn eat_person(cmd: &mut &str, pool: &PgPool) -> sqlx::Result<Option<PersonId>> {
     if let Some(user_id) = eat_user_mention(cmd) {
-        return match Person::from_snowflake(conn, user_id) {
-            Ok(opt_person) => Ok(opt_person),
-            Err(e) => {
-                *cmd = original_cmd;
-                Err(e)
-            }
-        }
+        return Ok(Some(PersonId::Discord(user_id)))
     }
     if cmd.starts_with('@') && cmd.contains('#') {
-        let username_regex = Regex::new("^@([^@#:]{2,32})#([0-9]{4})?").expect("failed to compile username regex"); //TODO better compliance with https://discordapp.com/developers/docs/resources/user
-        if let Some(captures) = username_regex.captures(cmd) {
-            if let Some(person) = Person::from_discord(conn, &captures[1], captures.get(2).map(|discr| discr.as_str().parse().expect("failed to convert Discord discriminator to integer")))? {
-                *cmd = &cmd[captures[0].len()..];
-                return Ok(Some(person))
+        if let Some((full_match, username, discrim)) = regex_captures!("^@([^@#:]{2,32})#([0-9]{4})?", cmd) { //TODO better compliance with https://discordapp.com/developers/docs/resources/user
+            let discrim = if discrim.is_empty() {
+                None
+            } else {
+                Some(discrim.parse().expect("failed to convert Discord discriminator to integer"))
+            };
+            if let Some(user_id) = PersonId::from_discord(pool, username, discrim).await? {
+                *cmd = &cmd[full_match.len()..];
+                return Ok(Some(PersonId::Discord(user_id)))
             }
         }
     }
     if let Some(word) = next_word(&cmd) {
         let mut word = &word[..];
         eat_optional_prefix(&mut word, '@');
-        if let Some(person) = Person::from_discord(conn, &word, None)? {
+        if let Some(user_id) = PersonId::from_discord(pool, &word, None).await? {
             eat_word(cmd);
-            return Ok(Some(person))
+            return Ok(Some(PersonId::Discord(user_id)))
         }
     }
+    //TODO parse legacy Wurstmineberg IDs
     Ok(None)
 }
 

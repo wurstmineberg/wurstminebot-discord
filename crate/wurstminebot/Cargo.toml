@@ -5,7 +5,9 @@ authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2021"
 
 [dependencies]
+futures = "0.3"
 itertools = "0.10"
+lazy-regex = "2"
 lazy_static = "1"
 rand = "0.8"
 regex = "1"
@@ -17,10 +19,6 @@ version = "0.99"
 default-features = false
 features = ["from"]
 
-[dependencies.diesel] #TODO use something async instead?
-version = "1"
-features = ["postgres", "serde_json"]
-
 [dependencies.minecraft]
 git = "https://github.com/wurstmineberg/rust-minecraft-types"
 branch = "main"
@@ -30,9 +28,13 @@ version = "1"
 features = ["derive"]
 
 [dependencies.serenity-utils]
-#git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io
-#branch = "main"
-path = "C:\\Users\\fenhl\\git\\github.com\\fenhl\\serenity-utils\\stage\\crate\\serenity-utils" #TODO push changes
+git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io?
+branch = "main"
+
+[dependencies.sqlx]
+version = "0.5"
+default-features = false
+features = ["json", "macros", "postgres", "runtime-tokio-rustls"]
 
 [dependencies.systemd_minecraft]
 git = "https://github.com/wurstmineberg/systemd-minecraft"

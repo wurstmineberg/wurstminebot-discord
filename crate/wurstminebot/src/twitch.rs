@@ -4,10 +4,12 @@ use {
         convert::Infallible as Never,
         iter,
     },
+    futures::stream::TryStreamExt as _,
     minecraft::chat::Chat,
     serde::Deserialize,
     serenity::prelude::*,
     serenity_utils::RwFuture,
+    sqlx::types::Json,
     systemd_minecraft::World,
     twitchchat::{
         UserConfig,
@@ -21,7 +23,6 @@ use {
         Database,
         Error,
         minecraft::tellraw,
-        people::Person,
     }
 };
 
@@ -55,11 +56,13 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
     loop {
         let ctx = ctx_fut.read().await;
         let data = (*ctx).data.read().await;
-        let conn = data.get::<Database>().expect("missing database connection").lock().await;
-        let everyone = Person::all(&conn)?;
-        let nick_map = everyone.into_iter()
-            .filter_map(|member| Some((member.twitch_nick()?.to_string(), member.minecraft_nick()?.to_string())))
-            .collect::<HashMap<_, _>>();
+        let mut nick_map = HashMap::<String, String>::default();
+        let pool = data.get::<Database>().expect("missing database connection");
+        let mut query = sqlx::query!(r#"SELECT data->'minecraft'->'nicks'->-1 as "minecraft_nick!: Json<String>", data->'twitch'->'login' as "twitch_nick!: Json<String>" FROM people WHERE data->'minecraft'->'nicks'->-1 IS NOT NULL AND data->'twitch'->'login' IS NOT NULL"#)
+            .fetch(pool);
+        while let Some(person_data) = query.try_next().await? {
+            nick_map.insert(person_data.twitch_nick.0, person_data.minecraft_nick.0);
+        }
         let user_config = data.get::<crate::config::Config>().expect("missing config").twitch.user_config().await?;
         let connector = twitchchat::connector::tokio::Connector::twitch()?;
         let mut runner = AsyncRunner::connect(connector, &user_config).await?;

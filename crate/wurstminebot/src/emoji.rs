@@ -62,7 +62,7 @@ impl Iter {
             static ref RE: Regex = Regex::new("^([0-9a-f]{1,6}(?:-[0-9a-f]{1,6})*)\\.svg$").expect("failed to compile twemoji filename regex");
         }
         let mut emoji = BTreeSet::default();
-        for entry in fs::read_dir("/opt/git/github.com/twitter/twemoji/master/2/svg")? {
+        for entry in fs::read_dir("/opt/git/github.com/twitter/twemoji/master/2/svg")? { //TODO use discord-message-parser instead, see peter-discord for example code
             let file_name = entry?.file_name().into_string()?;
             if let Some(capture) = RE.captures(&file_name).and_then(|captures| captures.get(1)) {
                 // convert the filename encoding the emoji (e.g. 1f3f3-fe0f-200d-1f308.svg) to the emoji itself (e.g. 🏳️‍🌈)
