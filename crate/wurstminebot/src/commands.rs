@@ -116,7 +116,7 @@ pub async fn ping(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
 #[command]
 pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let mut emoji_iter = emoji::Iter::new(msg.content.to_owned())?.peekable();
+    let mut emoji_iter = emoji::Iter::new(msg).peekable();
     if emoji_iter.peek().is_some() {
         for emoji in emoji_iter {
             msg.react(&ctx, emoji).await?;

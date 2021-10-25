@@ -22,8 +22,7 @@ use {
         },
     },
     itertools::Itertools as _,
-    lazy_static::lazy_static,
-    regex::Regex,
+    lazy_regex::regex_captures,
     serenity::{
         prelude::*,
         utils::MessageBuilder,
@@ -42,13 +41,6 @@ use {
     uuid::Uuid,
     crate::util::ResultNeverExt as _,
 };
-
-lazy_static! {
-    static ref CHAT_LINE: Regex = Regex::new("^<([A-Za-z0-9_]{3,16})> (.+)$").expect("failed to parse chat line regex");
-    static ref CHAT_ACTION_LINE: Regex = Regex::new("^\\* ([A-Za-z0-9_]{3,16}) (.+)$").expect("failed to parse chat action line regex");
-    static ref PLAYER_UUID_LINE: Regex = Regex::new("^UUID of player ([A-Za-z0-9_]{3,16}) is ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$").expect("failed to parse player UUID regex");
-    static ref REGULAR_LINE: Regex = Regex::new("^([0-9]+-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) \\[([^]]+)/(INFO|WARN|ERROR)\\]: (.+)$").expect("failed to parse regular line regex");
-}
 
 #[derive(Debug, From)]
 pub enum Error {
@@ -138,22 +130,22 @@ impl FromStr for RegularLine {
     type Err = Never;
 
     fn from_str(s: &str) -> Result<RegularLine, Never> {
-        Ok(if let Some(captures) = CHAT_LINE.captures(s) {
+        Ok(if let Some((_, sender, msg)) = regex_captures!("^<([A-Za-z0-9_]{3,16})> (.+)$", s) {
             RegularLine::Chat {
-                sender: captures[1].to_owned(),
-                msg: captures[2].to_owned(),
+                sender: sender.to_owned(),
+                msg: msg.to_owned(),
                 is_action: false,
             }
-        } else if let Some(captures) = CHAT_ACTION_LINE.captures(s) {
+        } else if let Some((_, sender, msg)) = regex_captures!("^\\* ([A-Za-z0-9_]{3,16}) (.+)$", s) {
             RegularLine::Chat {
-                sender: captures[1].to_owned(),
-                msg: captures[2].to_owned(),
+                sender: sender.to_owned(),
+                msg: msg.to_owned(),
                 is_action: true,
             }
-        } else if let Some(captures) = PLAYER_UUID_LINE.captures(s) {
+        } else if let Some((_, nickname, uuid)) = regex_captures!("^UUID of player ([A-Za-z0-9_]{3,16}) is ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", s) {
             RegularLine::PlayerUuid {
-                nickname: captures[1].to_owned(),
-                uuid: captures[2].parse().expect("UUID that matches regex should parse"),
+                nickname: nickname.to_owned(),
+                uuid: uuid.parse().expect("UUID that matches regex should parse"),
             }
         } else {
             RegularLine::Unknown(s.to_owned())
@@ -173,12 +165,12 @@ enum Line {
 
 impl Line {
     fn parse_regular(s: &str) -> Option<Line> {
-        let captures = REGULAR_LINE.captures(s)?;
+        let (_, _ /*timestamp*/, _ /*thread*/, _ /*level*/, content) = regex_captures!("^([0-9]+-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}) \\[([^]]+)/(INFO|WARN|ERROR)\\]: (.+)$", s)?;
         Some(Line::Regular {
-            //timestamp: Utc.datetime_from_str(&captures[1], "%Y-%m-%d %H:%M:%S").ok()?,
-            //thread: captures[2].parse().never_unwrap(),
-            //level: captures[3].parse().expect("level that matches regex should parse"),
-            content: captures[4].parse().never_unwrap(),
+            //timestamp: Utc.datetime_from_str(timestamp, "%Y-%m-%d %H:%M:%S").ok()?,
+            //thread: thread.parse().never_unwrap(),
+            //level: level.parse().expect("level that matches regex should parse"),
+            content: content.parse().never_unwrap(),
         })
     }
 }
