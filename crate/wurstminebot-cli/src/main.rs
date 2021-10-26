@@ -3,7 +3,6 @@
 
 use {
     std::{
-        collections::BTreeMap,
         future::Future,
         pin::Pin,
         time::{
@@ -95,19 +94,20 @@ impl serenity_utils::handler::user_list::ExporterMethods for UserListExporter {
 enum VoiceStateExporter {}
 
 impl serenity_utils::handler::voice_state::ExporterMethods for VoiceStateExporter {
-    fn dump_info<'a>(_: &'a Context, voice_state: &'a <VoiceStates as TypeMapKey>::Value) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
+    fn dump_info<'a>(_: &'a Context, _: GuildId, VoiceStates(voice_states): &'a VoiceStates) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
         Box::pin(async move {
             let buf = serde_json::to_vec_pretty(&json!({
-                "channels": voice_state.into_iter()
-                    .map(|(channel_name, members)| json!({
+                "channels": voice_states.into_iter()
+                    .map(|(channel_id, (channel_name, members))| json!({
                         "members": members.into_iter()
                             .map(|user| json!({
                                 "discriminator": user.discriminator,
                                 "snowflake": user.id,
-                                "username": user.name
+                                "username": user.name,
                             }))
                             .collect_vec(),
-                        "name": channel_name
+                        "name": channel_name,
+                        "snowflake": channel_id,
                     }))
                     .collect_vec()
             }))?;
@@ -230,7 +230,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .commands(Some("!"), &commands::GROUP)
         .data::<Config>(config)
         .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("wurstmineberg").application_name("wurstminebot")).await?)
-        .data::<VoiceStates>(BTreeMap::default())
         .task(|#[cfg_attr(not(unix), allow(unused))] ctx_fut, #[cfg_attr(not(unix), allow(unused))] notify_thread_crash| async move {
             #[cfg(unix)] {
                 // follow the Minecraft log
