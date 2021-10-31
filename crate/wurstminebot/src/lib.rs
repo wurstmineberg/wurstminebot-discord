@@ -64,8 +64,6 @@ pub enum Error {
     Serenity(serenity::Error),
     Sql(sqlx::Error),
     Twitch(twitch_helix::Error),
-    TwitchRunner(twitchchat::RunnerError),
-    TwitchUserConfig(twitchchat::twitch::UserConfigError),
     #[from(ignore)]
     UnknownTwitchNick(String),
     UserIdParse(UserIdParseError),
@@ -90,8 +88,6 @@ impl fmt::Display for Error {
             Error::Serenity(e) => e.fmt(f),
             Error::Sql(e) => e.fmt(f),
             Error::Twitch(e) => e.fmt(f),
-            Error::TwitchRunner(e) => write!(f, "Twitch chat error: {}", e),
-            Error::TwitchUserConfig(e) => write!(f, "error generating Twitch chat user config: {}", e),
             Error::UnknownTwitchNick(channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
             Error::UserIdParse(e) => e.fmt(f),
         }

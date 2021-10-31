@@ -2,7 +2,6 @@ use {
     std::{
         collections::HashMap,
         convert::Infallible as Never,
-        iter,
     },
     futures::stream::TryStreamExt as _,
     minecraft::chat::Chat,
@@ -11,13 +10,11 @@ use {
     serenity_utils::RwFuture,
     sqlx::types::Json,
     systemd_minecraft::World,
-    twitchchat::{
-        UserConfig,
-        messages::Commands,
-        runner::{
-            AsyncRunner,
-            Status,
-        },
+    twitch_irc::{
+        ClientConfig,
+        SecureTCPTransport as SecureTcpTransport,
+        TwitchIRCClient as TwitchIrcClient,
+        message::ServerMessage,
     },
     crate::{
         Database,
@@ -29,13 +26,16 @@ use {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
+    /*
     #[serde(default = "make_wurstminebot")]
     bot_username: String,
     #[serde(rename = "clientID")]
     client_id: String,
     client_secret: String,
+    */ //TODO
 }
 
+/*
 impl Config {
     async fn user_config(&self) -> Result<UserConfig, Error> {
         let api_client = twitch_helix::Client::new(
@@ -51,6 +51,7 @@ impl Config {
         Ok(cfg)
     }
 }
+*/ //TODO twitch-irc equivalent
 
 pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
     loop {
@@ -63,40 +64,47 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
         while let Some(person_data) = query.try_next().await? {
             nick_map.insert(person_data.twitch_nick.0, person_data.minecraft_nick.0);
         }
-        let user_config = data.get::<crate::config::Config>().expect("missing config").twitch.user_config().await?;
-        let connector = twitchchat::connector::tokio::Connector::twitch()?;
-        let mut runner = AsyncRunner::connect(connector, &user_config).await?;
-        for (twitch_nick, minecraft_nick) in &nick_map {
-            runner.join(twitch_nick).await?; //TODO dynamically join/leave channels as nick map is updated
-            for world in World::all_running().await? {
-                tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::chat::Color::Aqua)).await?;
-            }
+        let client_config = ClientConfig::default(); //TODO use wurstminebot credentials
+        let (mut incoming_messages, client) = TwitchIrcClient::<SecureTcpTransport, _>::new(client_config);
+        for twitch_nick in nick_map.keys() {
+            client.join(twitch_nick.clone()); //TODO dynamically join/leave channels as nick map is updated
         }
-        loop {
-            match runner.next_message().await? {
-                Status::Message(Commands::Privmsg(pm)) => {
-                    let channel_name = &pm.channel();
-                    if channel_name.starts_with('#') {
-                        if let Some(minecraft_nick) = nick_map.get(&channel_name[1..]) {
-                            for world in World::all_running().await? {
-                                tellraw(&world, minecraft_nick, Chat::from(format!(
-                                    "[Twitch] {} {}",
-                                    if pm.is_action() { format!("* {}", pm.name()) } else { format!("<{}>", pm.name()) },
-                                    pm.data(),
-                                )).color(minecraft::chat::Color::Aqua)).await?;
-                            }
-                        } else {
-                            return Err(Error::UnknownTwitchNick(channel_name.to_string()))
-                        }
-                    } else {
-                        return Err(Error::MalformedTwitchChannelName(channel_name.to_string()))
+        while let Some(msg) = incoming_messages.recv().await { //TODO move to a separate task, start before initial joins
+            match msg {
+                ServerMessage::Join(join) => if let Some(minecraft_nick) = nick_map.get(&join.channel_login) {
+                    for world in World::all_running().await? {
+                        tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::chat::Color::Aqua)).await?;
                     }
-                }
-                Status::Message(_) => {}
-                Status::Quit | Status::Eof => break,
+                },
+                ServerMessage::Part(part) => if let Some(minecraft_nick) = nick_map.get(&part.channel_login) {
+                    for world in World::all_running().await? {
+                        tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] disconnected")).color(minecraft::chat::Color::Aqua)).await?;
+                    }
+                },
+                ServerMessage::Privmsg(pm) => if let Some(minecraft_nick) = nick_map.get(&pm.channel_login) {
+                    for world in World::all_running().await? {
+                        let mut chat = Chat::from("[Twitch] ");
+                        chat.color(minecraft::chat::Color::Aqua);
+                        chat.add_extra({
+                            let mut extra = Chat::from(if pm.is_action { format!("* {}", pm.sender.name) } else { format!("<{}>", pm.sender.name) });
+                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(&*pm.sender.login))));
+                            extra
+                        });
+                        chat.add_extra(" ");
+                        chat.add_extra(&*pm.message_text);
+                        tellraw(&world, minecraft_nick, &chat).await?;
+                    }
+                },
+                ServerMessage::Reconnect(_) => for minecraft_nick in nick_map.values() {
+                    for world in World::all_running().await? {
+                        tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::chat::Color::Aqua)).await?;
+                    }
+                },
+                //ServerMessage::UserNotice(notice) => unimplemented!(), //TODO display user notices (sub, raid, etc.)
+                _ => {}
             }
         }
     }
 }
 
-fn make_wurstminebot() -> String { format!("wurstminebot") }
+//fn make_wurstminebot() -> String { format!("wurstminebot") } //TODO

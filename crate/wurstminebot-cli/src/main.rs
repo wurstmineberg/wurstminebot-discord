@@ -242,7 +242,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 eprintln!("warning: Minecraft log analysis is only supported on cfg(unix) because of https://github.com/lloydmeta/chase-rs/issues/6");
             }
         })
-        .task(|ctx_fut, _ /*notify_thread_crash*/| async move {
+        .task(|ctx_fut, notify_thread_crash| async move {
             // listen for Twitch chat messages
             let mut last_crash = Instant::now();
             let mut wait_time = Duration::from_secs(1);
@@ -257,7 +257,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                     wait_time *= 2; // exponential backoff
                 }
                 eprintln!("{} ({:?})", e, e);
-                //notify_thread_crash(format!("Twitch"), Box::new(e), Some(wait_time)).await; //TODO uncomment after https://github.com/museun/twitchchat/issues/237 is fixed
+                notify_thread_crash(format!("Twitch"), Box::new(e), Some(wait_time)).await;
                 sleep(wait_time).await; // wait before attempting to reconnect
                 last_crash = Instant::now();
             }
