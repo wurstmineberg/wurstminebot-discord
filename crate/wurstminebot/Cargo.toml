@@ -5,6 +5,7 @@ authors = ["Fenhl <fenhl@fenhl.net>"]
 edition = "2021"
 
 [dependencies]
+chrono = "0.4"
 futures = "0.3"
 itertools = "0.10"
 lazy-regex = "2"

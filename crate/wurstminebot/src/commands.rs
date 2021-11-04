@@ -28,6 +28,7 @@ use {
     },
     crate::{
         Database,
+        GENERAL,
         config::Config,
         emoji,
         parse,
@@ -37,8 +38,6 @@ pub use self::{
     HELP as HELP_COMMAND,
     MAIN_GROUP as GROUP,
 };
-
-const GENERAL: ChannelId = ChannelId(88318761228054528);
 
 #[help]
 async fn help(ctx: &Context, msg: &Message, args: Args, help_options: &'static HelpOptions, groups: &[&'static CommandGroup], owners: HashSet<UserId>) -> CommandResult {

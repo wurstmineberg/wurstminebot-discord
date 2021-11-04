@@ -10,9 +10,10 @@ use {
     sqlx::PgPool,
 };
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum PersonId {
-    Discord(UserId),
     LegacyWurstmineberg(String),
+    Discord(UserId),
 }
 
 impl PersonId {

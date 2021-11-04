@@ -4,12 +4,14 @@
 use {
     std::{
         future::Future,
+        iter,
         pin::Pin,
         time::{
             Duration,
             Instant,
         },
     },
+    chrono::prelude::*,
     discord_message_parser::{
         MessagePart,
         TimestampStyle,
@@ -42,9 +44,15 @@ use {
         DEV,
         Database,
         Error,
+        cal::{
+            self,
+            Event,
+            EventKind,
+        },
         commands,
         config::Config,
         minecraft::tellraw,
+        people::PersonId,
         twitch,
     },
 };
@@ -230,6 +238,20 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .commands(Some("!"), &commands::GROUP)
         .data::<Config>(config)
         .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("wurstmineberg").application_name("wurstminebot")).await?)
+        .data::<Event>(iter::once(Event {
+            start: Utc.ymd(2021, 11, 4).and_hms(19, 0, 0),
+            end: Utc.ymd(2021, 11, 4).and_hms(22, 0, 0),
+            kind: EventKind::Tour {
+                guests: vec![PersonId::Discord(UserId(88375841574125568))],
+                area: Some(format!("Zucchini")),
+            },
+        }).collect()) //TODO read events from a database, command to add an event
+        .task(|ctx_fut, notify_thread_crash| async move {
+            if let Err(e) = cal::notifications(ctx_fut).await {
+                eprintln!("{}", e);
+                notify_thread_crash(format!("calendar notifications"), Box::new(e), None).await;
+            }
+        })
         .task(|#[cfg_attr(not(unix), allow(unused))] ctx_fut, #[cfg_attr(not(unix), allow(unused))] notify_thread_crash| async move {
             #[cfg(unix)] {
                 // follow the Minecraft log
@@ -257,7 +279,9 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                     wait_time *= 2; // exponential backoff
                 }
                 eprintln!("{} ({:?})", e, e);
-                notify_thread_crash(format!("Twitch"), Box::new(e), Some(wait_time)).await;
+                if wait_time >= Duration::from_secs(2) { // only notify on multiple consecutive errors
+                    notify_thread_crash(format!("Twitch"), Box::new(e), Some(wait_time)).await;
+                }
                 sleep(wait_time).await; // wait before attempting to reconnect
                 last_crash = Instant::now();
             }

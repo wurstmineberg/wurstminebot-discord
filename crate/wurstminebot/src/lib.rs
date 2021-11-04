@@ -18,6 +18,7 @@ use {
     },
 };
 
+pub mod cal;
 pub mod commands;
 pub mod config;
 pub mod emoji;
@@ -35,6 +36,7 @@ pub const IPC_ADDR: &str = "127.0.0.1:18809";
 /// The guild ID for the Wurstmineberg guild.
 pub const WURSTMINEBERG: GuildId = GuildId(88318761228054528);
 
+pub(crate) const GENERAL: ChannelId = ChannelId(88318761228054528);
 pub const DEV: ChannelId = ChannelId(506905544901001228);
 
 /// The directory where all Wurstmineberg-related files are located: `/opt/wurstmineberg`.
