@@ -13,7 +13,7 @@ use {
     },
 };
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PersonId {
     LegacyWurstmineberg(String),
     Discord(UserId),

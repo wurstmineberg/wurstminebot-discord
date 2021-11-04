@@ -23,14 +23,14 @@ use {
     },
 };
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Event {
     pub start: DateTime<Utc>,
     pub end: DateTime<Utc>,
     pub kind: EventKind,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EventKind {
     Tour {
         area: Option<String>,
@@ -92,11 +92,14 @@ impl TypeMapKey for Event {
 pub async fn notifications(ctx_fut: RwFuture<Context>) -> Result<(), Error> {
     let now = Utc::now();
     let ctx = ctx_fut.read().await;
-    let data = (*ctx).data.read().await;
-    let events = data.get::<Event>().expect("missing events");
-    let mut unnotified = events.iter()
-        .filter(|event| event.start - Duration::minutes(30) >= now)
-        .collect_vec();
+    let mut unnotified = {
+        let data = (*ctx).data.read().await;
+        let events = data.get::<Event>().expect("missing events");
+        events.iter()
+            .filter(|event| event.start - Duration::minutes(30) >= now)
+            .cloned()
+            .collect_vec()
+    };
     while !unnotified.is_empty() {
         let event = unnotified.remove(0);
         if let Ok(duration) = (event.start - now).to_std() {
