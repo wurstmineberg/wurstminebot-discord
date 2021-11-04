@@ -22,6 +22,7 @@ pub mod cal;
 pub mod commands;
 pub mod config;
 pub mod emoji;
+pub mod http;
 pub mod ipc;
 #[cfg(unix)] pub mod log;
 pub mod minecraft;

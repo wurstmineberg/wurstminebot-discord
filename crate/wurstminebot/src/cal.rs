@@ -13,6 +13,7 @@ use {
         },
     },
     serenity_utils::RwFuture,
+    sqlx::PgPool,
     tokio::time::sleep,
     crate::{
         Error,
@@ -38,6 +39,22 @@ pub enum EventKind {
 }
 
 impl EventKind {
+    pub(crate) async fn ics_title(&self, pool: &PgPool) -> String {
+        match self {
+            Self::Tour { guests, area } => {
+                let mut guest_names = Vec::default();
+                for guest in guests {
+                    guest_names.push(guest.display(pool).await);
+                }
+                if let Some(area) = area {
+                    format!("tour of {} for {}", area, join(guest_names).unwrap_or_else(|| format!("no one")))
+                } else {
+                    format!("server tour for {}", join(guest_names).unwrap_or_else(|| format!("no one")))
+                }
+            }
+        }
+    }
+
     fn discord_title(&self) -> String {
         match self {
             Self::Tour { guests, area: Some(area) } => MessageBuilder::default()
@@ -53,10 +70,17 @@ impl EventKind {
         }
     }
 
-    fn discord_location(&self) -> String {
+    pub(crate) fn ics_location(&self) -> String {
         match self {
             Self::Tour { area: Some(area), .. } => format!("{}\nWurstmineberg", area),
             Self::Tour { area: None, .. } => format!("spawn platform\nZucchini\nWurstmineberg"),
+        }
+    }
+
+    fn discord_location(&self) -> String {
+        match self {
+            Self::Tour { area: Some(area), .. } => format!("{}\nWurstmineberg", area),
+            Self::Tour { area: None, .. } => format!("spawn platform\n[Zucchini](https://wurstmineberg.de/wiki/renascence#zucchini)\nWurstmineberg"),
         }
     }
 }

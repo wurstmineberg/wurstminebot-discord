@@ -51,6 +51,7 @@ use {
         },
         commands,
         config::Config,
+        http,
         minecraft::tellraw,
         people::PersonId,
         twitch,
@@ -250,6 +251,12 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             if let Err(e) = cal::notifications(ctx_fut).await {
                 eprintln!("{}", e);
                 notify_thread_crash(format!("calendar notifications"), Box::new(e), None).await;
+            }
+        })
+        .task(|ctx_fut, notify_thread_crash| async move {
+            if let Err(e) = http::rocket(ctx_fut).launch().await {
+                eprintln!("{}", e);
+                notify_thread_crash(format!("HTTP server"), Box::new(e), None).await;
             }
         })
         .task(|#[cfg_attr(not(unix), allow(unused))] ctx_fut, #[cfg_attr(not(unix), allow(unused))] notify_thread_crash| async move {

@@ -7,7 +7,10 @@ use {
     },
     serde_json::json,
     serenity::model::prelude::*,
-    sqlx::PgPool,
+    sqlx::{
+        PgPool,
+        types::Json,
+    },
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -52,6 +55,21 @@ impl PersonId {
         } else {
             None
         })
+    }
+
+    pub(crate) async fn display(&self, pool: &PgPool) -> String {
+        match self {
+            Self::Discord(user_id) => if let Ok(row) = sqlx::query!(r#"SELECT discorddata->'username' as "username!: Json<String>", discorddata->'nick' as "nick: Json<String>" FROM people WHERE snowflake = $1"#, user_id.0 as i64).fetch_one(pool).await {
+                if let Some(nick) = row.nick { nick.0 } else { row.username.0 }
+            } else {
+                format!("<@{}>", user_id)
+            },
+            Self::LegacyWurstmineberg(wmbid) => if let Ok(row) = sqlx::query!(r#"SELECT data->'name' as "name: Json<String>" FROM people WHERE wmbid = $1"#, wmbid).fetch_one(pool).await {
+                if let Some(name) = row.name { name.0 } else { wmbid.clone() }
+            } else {
+                wmbid.clone()
+            },
+        }
     }
 
     pub(crate) fn mention(&self) -> String {
