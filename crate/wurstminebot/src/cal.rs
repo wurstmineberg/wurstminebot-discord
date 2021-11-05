@@ -1,16 +1,18 @@
 use {
-    std::collections::BTreeSet,
     chrono::{
         Duration,
         prelude::*,
     },
-    itertools::Itertools as _,
+    serde::Deserialize,
     serenity::{
         prelude::*,
         utils::Colour,
     },
     serenity_utils::RwFuture,
-    sqlx::PgPool,
+    sqlx::{
+        PgPool,
+        types::Json,
+    },
     tokio::time::sleep,
     crate::{
         Database,
@@ -21,14 +23,16 @@ use {
     },
 };
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Event {
-    pub start: DateTime<Utc>,
-    pub end: DateTime<Utc>,
-    pub kind: EventKind,
+#[derive(Clone)]
+pub(crate) struct Event {
+    pub(crate) id: i32,
+    pub(crate) start_time: DateTime<Utc>,
+    pub(crate) end_time: DateTime<Utc>,
+    pub(crate) kind: Json<EventKind>,
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum EventKind {
     Tour {
         area: Option<String>,
@@ -68,39 +72,32 @@ impl EventKind {
     }
 }
 
-impl TypeMapKey for Event {
-    type Value = BTreeSet<Event>;
-}
-
 pub async fn notifications(ctx_fut: RwFuture<Context>) -> Result<(), Error> {
-    let now = Utc::now();
     let ctx = ctx_fut.read().await;
     let mut unnotified = {
         let data = (*ctx).data.read().await;
-        let events = data.get::<Event>().expect("missing events");
-        events.iter()
-            .filter(|event| event.start - Duration::minutes(30) >= now)
-            .cloned()
-            .collect_vec()
+        let pool = data.get::<Database>().expect("missing database connection");
+        let now = Utc::now();
+        sqlx::query_as!(Event, r#"SELECT id, start_time, end_time, kind as "kind: Json<EventKind>" FROM calendar WHERE start_time > $1 ORDER BY start_time"#, now + Duration::minutes(30)).fetch_all(pool).await?
     };
     while !unnotified.is_empty() {
         let event = unnotified.remove(0);
-        if let Ok(duration) = (event.start - Duration::minutes(30) - Utc::now()).to_std() {
+        if let Ok(duration) = (event.start_time - Duration::minutes(30) - Utc::now()).to_std() {
             sleep(duration).await;
         }
         let title = {
             let data = (*ctx).data.read().await;
             let pool = data.get::<Database>().expect("missing database connection");
-            event.kind.title(pool).await
+            event.kind.0.title(pool).await
         };
         GENERAL.send_message(&*ctx, |m| m
-            .content(format!("event starting <t:{}:R>", event.start.timestamp()))
+            .content(format!("event starting <t:{}:R>", event.start_time.timestamp()))
             .add_embed(|e| e
                 .colour(Colour(8794372))
                 .title(title)
-                .description(event.kind.discord_location())
-                .field("starts", format!("<t:{}:F>", event.start.timestamp()), false)
-                .field("ends", format!("<t:{}:F>", event.end.timestamp()), false)
+                .description(event.kind.0.discord_location())
+                .field("starts", format!("<t:{}:F>", event.start_time.timestamp()), false)
+                .field("ends", format!("<t:{}:F>", event.end_time.timestamp()), false)
             )
         ).await?;
     }

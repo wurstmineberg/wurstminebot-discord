@@ -4,14 +4,12 @@
 use {
     std::{
         future::Future,
-        iter,
         pin::Pin,
         time::{
             Duration,
             Instant,
         },
     },
-    chrono::prelude::*,
     discord_message_parser::{
         MessagePart,
         TimestampStyle,
@@ -44,16 +42,11 @@ use {
         DEV,
         Database,
         Error,
-        cal::{
-            self,
-            Event,
-            EventKind,
-        },
+        cal,
         commands,
         config::Config,
         http,
         minecraft::tellraw,
-        people::PersonId,
         twitch,
     },
 };
@@ -239,14 +232,6 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .commands(Some("!"), &commands::GROUP)
         .data::<Config>(config)
         .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("wurstmineberg").application_name("wurstminebot")).await?)
-        .data::<Event>(iter::once(Event {
-            start: Utc.ymd(2021, 11, 4).and_hms(19, 0, 0),
-            end: Utc.ymd(2021, 11, 4).and_hms(22, 0, 0),
-            kind: EventKind::Tour {
-                guests: vec![PersonId::Discord(UserId(88375841574125568))],
-                area: Some(format!("Zucchini")),
-            },
-        }).collect()) //TODO read events from a database, command to add an event
         .task(|ctx_fut, notify_thread_crash| async move {
             if let Err(e) = cal::notifications(ctx_fut).await {
                 eprintln!("{}", e);

@@ -153,6 +153,7 @@ async fn update(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
 
 #[command]
 async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
+    //TODO only allow current members to use this command
     let data = ctx.data.read().await;
     let pool = data.get::<Database>().expect("missing database connection");
     let mut cmd = args.message();
@@ -176,5 +177,5 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
     quit,
     update,
     veto,
-)]
+)] //TODO any-admin command to add a calendar event
 struct Main;

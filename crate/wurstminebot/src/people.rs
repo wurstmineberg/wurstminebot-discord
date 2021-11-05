@@ -5,6 +5,7 @@ use {
         StreamExt as _,
         TryStreamExt as _,
     },
+    serde::Deserialize,
     serde_json::json,
     serenity::model::prelude::*,
     sqlx::{
@@ -13,7 +14,8 @@ use {
     },
 };
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
 pub enum PersonId {
     LegacyWurstmineberg(String),
     Discord(UserId),
