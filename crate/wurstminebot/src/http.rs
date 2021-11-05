@@ -40,7 +40,7 @@ async fn calendar(ctx_fut: &State<RwFuture<Context>>) -> Result<Custom<Vec<u8>>,
     let events = data.get::<Event>().expect("missing events");
     for (i, event) in events.iter().enumerate() {
         let mut cal_event = ics::Event::new(format!("event{}@wurstmineberg.de", i), ics_datetime(Utc::now()));
-        cal_event.push(Summary::new(event.kind.ics_title(pool).await));
+        cal_event.push(Summary::new(event.kind.title(pool).await));
         cal_event.push(Location::new(event.kind.ics_location()));
         cal_event.push(DtStart::new(ics_datetime(event.start)));
         cal_event.push(DtEnd::new(ics_datetime(event.end)));

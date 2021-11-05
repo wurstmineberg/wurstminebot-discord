@@ -7,15 +7,13 @@ use {
     itertools::Itertools as _,
     serenity::{
         prelude::*,
-        utils::{
-            Colour,
-            MessageBuilder,
-        },
+        utils::Colour,
     },
     serenity_utils::RwFuture,
     sqlx::PgPool,
     tokio::time::sleep,
     crate::{
+        Database,
         Error,
         GENERAL,
         people::PersonId,
@@ -39,7 +37,7 @@ pub enum EventKind {
 }
 
 impl EventKind {
-    pub(crate) async fn ics_title(&self, pool: &PgPool) -> String {
+    pub(crate) async fn title(&self, pool: &PgPool) -> String {
         match self {
             Self::Tour { guests, area } => {
                 let mut guest_names = Vec::default();
@@ -52,21 +50,6 @@ impl EventKind {
                     format!("server tour for {}", join(guest_names).unwrap_or_else(|| format!("no one")))
                 }
             }
-        }
-    }
-
-    fn discord_title(&self) -> String {
-        match self {
-            Self::Tour { guests, area: Some(area) } => MessageBuilder::default()
-                .push("tour of ")
-                .push_safe(area)
-                .push(" for ")
-                .push(join(guests.iter().map(|guest| guest.mention())).unwrap_or_else(|| format!("no one")))
-                .build(),
-            Self::Tour { guests, area: None } => MessageBuilder::default()
-                .push("server tour for ")
-                .push(join(guests.iter().map(|guest| guest.mention())).unwrap_or_else(|| format!("no one")))
-                .build(),
         }
     }
 
@@ -102,14 +85,19 @@ pub async fn notifications(ctx_fut: RwFuture<Context>) -> Result<(), Error> {
     };
     while !unnotified.is_empty() {
         let event = unnotified.remove(0);
-        if let Ok(duration) = (event.start - now).to_std() {
+        if let Ok(duration) = (event.start - Duration::minutes(30) - Utc::now()).to_std() {
             sleep(duration).await;
         }
+        let title = {
+            let data = (*ctx).data.read().await;
+            let pool = data.get::<Database>().expect("missing database connection");
+            event.kind.title(pool).await
+        };
         GENERAL.send_message(&*ctx, |m| m
-            .content(format!("Event starting <t:{}:R>", event.start.timestamp()))
+            .content(format!("event starting <t:{}:R>", event.start.timestamp()))
             .add_embed(|e| e
                 .colour(Colour(8794372))
-                .title(event.kind.discord_title())
+                .title(title)
                 .description(event.kind.discord_location())
                 .field("starts", format!("<t:{}:F>", event.start.timestamp()), false)
                 .field("ends", format!("<t:{}:F>", event.end.timestamp()), false)
