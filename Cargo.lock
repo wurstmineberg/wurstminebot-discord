@@ -317,9 +317,9 @@ dependencies = [
 
 [[package]]
 name = "blocking"
-version = "1.0.2"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5e170dbede1f740736619b776d7251cb1b9095c435c34d8ca9f57fcd2f335e9"
+checksum = "046e47d4b2d391b1f6f8b407b1deb8dee56c1852ccd868becf2710f601b5f427"
 dependencies = [
  "async-channel",
  "async-task",
@@ -447,6 +447,12 @@ name = "const_fn"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f92cfa0fd5690b3cf8c1ef2cabbd9b7ef22fa53cf5e1f92b05103f6d5d1cf6e7"
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "cookie"
@@ -641,28 +647,19 @@ checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 [[package]]
 name = "discord-message-parser"
 version = "0.2.0"
-source = "git+https://github.com/fenhl/discord-message-parser?branch=main#c9d24a1ac85aa81b88c9ab8131cc112ac9e2f717"
+source = "git+https://github.com/fenhl/discord-message-parser?branch=main#b880fb72564886fbb2e8d532356ccc12bd0ab720"
 dependencies = [
  "chrono",
  "derivative",
- "discord-message-parser-derive",
- "once_cell",
- "regex",
- "serenity",
-]
-
-[[package]]
-name = "discord-message-parser-derive"
-version = "0.2.0"
-source = "git+https://github.com/fenhl/discord-message-parser?branch=main#c9d24a1ac85aa81b88c9ab8131cc112ac9e2f717"
-dependencies = [
  "graphql_client",
  "itertools",
+ "lazy-regex",
  "once_cell",
  "quote",
  "regex",
  "reqwest",
  "serde",
+ "serenity",
 ]
 
 [[package]]
@@ -1242,6 +1239,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "if_chain"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
+
+[[package]]
 name = "indexmap"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1301,9 +1304,9 @@ dependencies = [
 
 [[package]]
 name = "inventory"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f0f7efb804ec95e33db9ad49e4252f049e37e8b0a4652e3cd61f7999f2eff7f"
+checksum = "f0eb5160c60ba1e809707918ee329adb99d222888155835c6feedba19f6c3fd4"
 dependencies = [
  "ctor",
  "ghost",
@@ -1312,9 +1315,9 @@ dependencies = [
 
 [[package]]
 name = "inventory-impl"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75c094e94816723ab936484666968f5b58060492e880f3c8d00489a1e244fa51"
+checksum = "7e41b53715c6f0c4be49510bb82dee2c1e51c8586d885abe65396e82ed518548"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1403,9 +1406,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.106"
+version = "0.2.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a60553f9a9e039a333b4e9b20573b9e9b9c0bb3a11e201ccc48ef4283456d673"
+checksum = "fbe5e23404da5b4f555ef85ebed98fb4083e55a00c317800bc2a50ede9f3d219"
 
 [[package]]
 name = "linked-hash-map"
@@ -1523,7 +1526,7 @@ dependencies = [
 [[package]]
 name = "minecraft"
 version = "6.1.2"
-source = "git+https://github.com/wurstmineberg/systemd-minecraft?branch=riir#49fdac0129d77279c0c3f2f4e31d0d3367314598"
+source = "git+https://github.com/wurstmineberg/systemd-minecraft?branch=riir#d9081acec3915ec07e709580a498ab25787e34d4"
 dependencies = [
  "async-trait",
  "crossbeam-channel",
@@ -1545,9 +1548,9 @@ dependencies = [
 
 [[package]]
 name = "minimal-lexical"
-version = "0.1.4"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c64630dcdd71f1a64c435f54885086a0de5d6a12d104d69b165fb7d5286d677"
+checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
@@ -1603,9 +1606,9 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "7.0.0"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ffd9d26838a953b4af82cbeb9f1592c6798916983959be223a7124e992742c1"
+checksum = "1b1d11e1ef389c76fe5b81bcaf2ea32cf88b62bc494e19f493d0b30e7a930109"
 dependencies = [
  "memchr",
  "minimal-lexical",
@@ -1811,9 +1814,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "polling"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92341d779fa34ea8437ef4d82d440d5e1ce3f3ff7f824aa64424cd481f9a1f25"
+checksum = "685404d509889fade3e86fe3a5803bca2ec09b0c0778d5ada6ec8bf7a8de5259"
 dependencies = [
  "cfg-if",
  "libc",
@@ -2350,9 +2353,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.68"
+version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f690853975602e1bfe1ccbf50504d67174e3bcf340f23b5ea9992e0587a52d8"
+checksum = "e466864e431129c7e0d3476b92f20458e5879919a0596c6472738d9fa2d342f8"
 dependencies = [
  "indexmap",
  "itoa",
@@ -2401,11 +2404,12 @@ dependencies = [
 
 [[package]]
 name = "serenity-utils"
-version = "0.5.0"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#5b03d2d2e4e1c2b14433195408c114d22661e7ab"
+version = "0.5.1"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#d69622c88cb5b5f5e809df7bb18ef8d371e792aa"
 dependencies = [
  "derive_more",
  "futures 0.3.17",
+ "inventory",
  "parking_lot",
  "serenity",
  "serenity-utils-derive",
@@ -2416,9 +2420,12 @@ dependencies = [
 
 [[package]]
 name = "serenity-utils-derive"
-version = "0.5.0"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#5b03d2d2e4e1c2b14433195408c114d22661e7ab"
+version = "0.5.1"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#d69622c88cb5b5f5e809df7bb18ef8d371e792aa"
 dependencies = [
+ "convert_case",
+ "if_chain",
+ "itertools",
  "proc-macro2",
  "quote",
  "syn",
@@ -2895,9 +2902,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f83b2a3d4d9091d0abd7eba4dc2710b1718583bd4d8992e2190720ea38f391f7"
+checksum = "2c1c1d5a42b6245520c249549ec267180beaffcc0615401ac8e31853d4b6d8d2"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -3497,7 +3504,7 @@ dependencies = [
 [[package]]
 name = "wheel"
 version = "0.4.1"
-source = "git+https://github.com/fenhl/wheel?branch=main#bee57c370e4f521db61f774d932bcf363d18b148"
+source = "git+https://github.com/fenhl/wheel?branch=main#5c6ddcf50c334786812f4169f00d3953c51b13c9"
 dependencies = [
  "paw",
  "structopt",
@@ -3508,7 +3515,7 @@ dependencies = [
 [[package]]
 name = "wheel-derive"
 version = "0.4.1"
-source = "git+https://github.com/fenhl/wheel?branch=main#bee57c370e4f521db61f774d932bcf363d18b148"
+source = "git+https://github.com/fenhl/wheel?branch=main#5c6ddcf50c334786812f4169f00d3953c51b13c9"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -3518,9 +3525,9 @@ dependencies = [
 
 [[package]]
 name = "whoami"
-version = "1.1.5"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "483a59fee1a93fec90eb08bc2eb4315ef10f4ebc478b3a5fadc969819cb66117"
+checksum = "c33ac5ee236a4efbf2c98967e12c6cc0c51d93a744159a52957ba206ae6ef5f7"
 dependencies = [
  "wasm-bindgen",
  "web-sys",

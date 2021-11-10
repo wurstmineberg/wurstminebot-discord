@@ -188,7 +188,7 @@ fn discord_to_minecraft<'a>(ctx: &'a Context, msg: &'a Message, chat: &'a mut Ch
 #[serenity_utils::main(ipc = "wurstminebot::ipc")]
 async fn main() -> Result<serenity_utils::Builder, Error> {
     let config = Config::new().await?;
-    Ok(serenity_utils::builder(config.wurstminebot.bot_token.clone()).await?
+    Ok(serenity_utils::builder(388416898825584640, config.wurstminebot.bot_token.clone()).await?
         .error_notifier(ErrorNotifier::Channel(DEV))
         .on_ready(|ctx, ready| Box::pin(async move {
             if ready.user.guilds(ctx).await.expect("failed to get guilds").len() > 1 {
@@ -229,7 +229,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         }))
         .event_handler(serenity_utils::handler::user_list_exporter::<UserListExporter>())
         .event_handler(serenity_utils::handler::voice_state_exporter::<VoiceStateExporter>())
-        .commands(Some("!"), &commands::GROUP)
+        .message_commands(Some("!"), &commands::GROUP) //TODO migrate to slash commands
         .data::<Config>(config)
         .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("wurstmineberg").application_name("wurstminebot")).await?)
         .task(|ctx_fut, notify_thread_crash| async move {
