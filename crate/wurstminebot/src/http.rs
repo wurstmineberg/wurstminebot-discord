@@ -60,8 +60,8 @@ async fn calendar(ctx_fut: &State<RwFuture<Context>>) -> Result<Custom<Vec<u8>>,
     let mut events = sqlx::query_as!(Event, r#"SELECT id, start_time, end_time, kind as "kind: Json<EventKind>" FROM calendar"#).fetch(pool);
     while let Some(event) = events.try_next().await? {
         let mut cal_event = ics::Event::new(format!("event{}@wurstmineberg.de", event.id), ics_datetime(Utc::now()));
-        cal_event.push(Summary::new(event.kind.0.title(pool).await));
-        cal_event.push(Location::new(event.kind.0.ics_location()));
+        cal_event.push(Summary::new(event.title(pool).await));
+        cal_event.push(Location::new(event.ics_location()));
         cal_event.push(DtStart::new(ics_datetime(event.start_time)));
         cal_event.push(DtEnd::new(ics_datetime(event.end_time)));
         cal.add_event(cal_event);
