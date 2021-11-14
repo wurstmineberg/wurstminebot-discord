@@ -231,9 +231,9 @@ dependencies = [
 
 [[package]]
 name = "atomic"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3410529e8288c463bedb5930f82833bc0c90e5d2fe639a56582a4d09220b281"
+checksum = "b88d82667eca772c4aa12f0f1348b3ae643424c8876448f3f7bd5787032e234c"
 dependencies = [
  "autocfg",
 ]
@@ -361,9 +361,9 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 
 [[package]]
 name = "cc"
-version = "1.0.71"
+version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79c2681d6594606957bbb8631c4b90a7fcaaa72cdb714743a437b156d6a7eedd"
+checksum = "22a9137b95ea06864e018375b72adfb7db6e6f68cfc8df5a04d00288050485ee"
 
 [[package]]
 name = "cfg-if"
@@ -1314,6 +1314,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "inventory"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1367fed6750ff2a5bcb967a631528303bb85631f167a75eb1bf7762d57eb7678"
+dependencies = [
+ "ctor",
+ "ghost",
+]
+
+[[package]]
 name = "inventory-impl"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1898,7 +1908,7 @@ dependencies = [
  "cfg-if",
  "ctor",
  "indoc",
- "inventory",
+ "inventory 0.1.11",
  "libc",
  "parking_lot",
  "paste",
@@ -2404,12 +2414,12 @@ dependencies = [
 
 [[package]]
 name = "serenity-utils"
-version = "0.5.1"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#d69622c88cb5b5f5e809df7bb18ef8d371e792aa"
+version = "0.6.0"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#6e5c22173ba47df1c9c1f3c6bb202efffeaaf8a3"
 dependencies = [
  "derive_more",
  "futures 0.3.17",
- "inventory",
+ "inventory 0.2.0",
  "parking_lot",
  "serenity",
  "serenity-utils-derive",
@@ -2420,8 +2430,8 @@ dependencies = [
 
 [[package]]
 name = "serenity-utils-derive"
-version = "0.5.1"
-source = "git+https://github.com/fenhl/serenity-utils?branch=main#d69622c88cb5b5f5e809df7bb18ef8d371e792aa"
+version = "0.6.0"
+source = "git+https://github.com/fenhl/serenity-utils?branch=main#6e5c22173ba47df1c9c1f3c6bb202efffeaaf8a3"
 dependencies = [
  "convert_case",
  "if_chain",

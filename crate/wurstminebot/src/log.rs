@@ -187,8 +187,7 @@ impl FromStr for Line {
 fn follow(world: &World) -> impl Stream<Item = Result<Line, Error>> {
     let log_path = world.dir().join("logs/latest.log");
     stream::once(async {
-        let f: File = File::open(&log_path).await?; //DEBUG
-        let init_lines = LinesStream::new(BufReader::new(f).lines()).try_fold(0, |acc, _| async move { Ok(acc + 1) }).await?;
+        let init_lines = LinesStream::new(BufReader::new(File::open(&log_path).await?).lines()).try_fold(0, |acc, _| async move { Ok(acc + 1) }).await?;
         let mut chaser = Chaser::new(log_path);
         chaser.line = chase::Line(init_lines);
         let (rx, _ /*handle*/) = chaser.run_stream()?; //TODO handle errors in the stream using `handle`

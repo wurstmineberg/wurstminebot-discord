@@ -30,6 +30,7 @@ pub enum EventKind {
     Minigame {
         minigame: String,
     },
+    #[serde(rename_all = "camelCase")]
     Renascence {
         settlement: String,
         hub_coords: [i16; 2],
@@ -46,7 +47,7 @@ pub enum EventKind {
     },
     Other {
         title: String,
-        location: String,
+        location: Option<String>,
     },
 }
 
@@ -80,35 +81,37 @@ impl Event {
         }
     }
 
-    pub(crate) fn ics_location(&self) -> Cow<'static, str> {
+    pub(crate) fn ics_location(&self) -> Option<Cow<'static, str>> {
         match self.kind.0 {
-            EventKind::Minigame { .. } => Cow::Borrowed("minigame.wurstmineberg.de"),
-            EventKind::Renascence { hub_coords: [x, z], .. } => Cow::Owned(format!("Hub {}, {}\nThe Nether\nWurstmineberg", x, z)),
-            EventKind::RenascenceDragonFight { ref settlement } => Cow::Owned(format!("{}\nWurstmineberg", settlement)),
-            EventKind::Tour { area: Some(ref area), .. } => Cow::Owned(format!("{}\nWurstmineberg", area)),
-            EventKind::Tour { area: None, .. } => Cow::Borrowed(if self.start_time >= Utc.ymd(2019, 4, 7).and_hms(0, 0, 0) {
+            EventKind::Minigame { .. } => Some(Cow::Borrowed("minigame.wurstmineberg.de")),
+            EventKind::Renascence { hub_coords: [x, z], .. } => Some(Cow::Owned(format!("Hub {}, {}\nThe Nether\nWurstmineberg", x, z))),
+            EventKind::RenascenceDragonFight { ref settlement } => Some(Cow::Owned(format!("{}\nWurstmineberg", settlement))),
+            EventKind::Tour { area: Some(ref area), .. } => Some(Cow::Owned(format!("{}\nWurstmineberg", area))),
+            EventKind::Tour { area: None, .. } => Some(Cow::Borrowed(if self.start_time >= Utc.ymd(2019, 4, 7).and_hms(0, 0, 0) {
                 "spawn platform\nZucchini\nWurstmineberg"
             } else {
                 "Platz des Ursprungs\nWurstmineberg"
-            }),
-            EventKind::Usc { .. } => Cow::Borrowed("usc.wurstmineberg.de"),
-            EventKind::Other { ref location, .. } => Cow::Owned(location.to_owned()),
+            })),
+            EventKind::Usc { .. } => Some(Cow::Borrowed("usc.wurstmineberg.de")),
+            EventKind::Other { location: Some(ref loc), .. } => Some(Cow::Owned(loc.to_owned())),
+            EventKind::Other { location: None, .. } => None,
         }
     }
 
-    fn discord_location(&self) -> Cow<'static, str> {
+    fn discord_location(&self) -> Option<Cow<'static, str>> {
         match self.kind.0 {
-            EventKind::Minigame { .. } => Cow::Borrowed("minigame.wurstmineberg.de"),
-            EventKind::Renascence { hub_coords: [x, z], .. } => Cow::Owned(format!("[Hub](https://wurstmineberg.de/wiki/nether-hub-system) {}, {}\nThe Nether\nWurstmineberg", x, z)),
-            EventKind::RenascenceDragonFight { ref settlement } => Cow::Owned(format!("[{}](https://wurstmineberg.de/renascence#{})\nWurstmineberg", settlement, settlement.to_lowercase())),
-            EventKind::Tour { area: Some(ref area), .. } => Cow::Owned(format!("{}\nWurstmineberg", area)),
-            EventKind::Tour { area: None, .. } => Cow::Borrowed(if self.start_time >= Utc.ymd(2019, 4, 7).and_hms(0, 0, 0) {
+            EventKind::Minigame { .. } => Some(Cow::Borrowed("minigame.wurstmineberg.de")),
+            EventKind::Renascence { hub_coords: [x, z], .. } => Some(Cow::Owned(format!("[Hub](https://wurstmineberg.de/wiki/nether-hub-system) {}, {}\nThe Nether\nWurstmineberg", x, z))),
+            EventKind::RenascenceDragonFight { ref settlement } => Some(Cow::Owned(format!("[{}](https://wurstmineberg.de/renascence#{})\nWurstmineberg", settlement, settlement.to_lowercase()))),
+            EventKind::Tour { area: Some(ref area), .. } => Some(Cow::Owned(format!("{}\nWurstmineberg", area))),
+            EventKind::Tour { area: None, .. } => Some(Cow::Borrowed(if self.start_time >= Utc.ymd(2019, 4, 7).and_hms(0, 0, 0) {
                 "spawn platform\n[Zucchini](https://wurstmineberg.de/wiki/renascence#zucchini)\nWurstmineberg"
             } else {
                 "[Platz des Ursprungs](https://wurstmineberg.de/wiki/old-spawn#platz-des-ursprungs)\nWurstmineberg"
-            }),
-            EventKind::Usc { .. } => Cow::Borrowed("usc.wurstmineberg.de"), //TODO linkify via menu bar/systray app?
-            EventKind::Other { ref location, .. } => Cow::Owned(location.to_owned()),
+            })),
+            EventKind::Usc { .. } => Some(Cow::Borrowed("usc.wurstmineberg.de")), //TODO linkify via menu bar/systray app?
+            EventKind::Other { location: Some(ref loc), .. } => Some(Cow::Owned(loc.to_owned())),
+            EventKind::Other { location: None, .. } => None,
         }
     }
 }
@@ -133,13 +136,16 @@ pub async fn notifications(ctx_fut: RwFuture<Context>) -> Result<(), Error> {
         };
         GENERAL.send_message(&*ctx, |m| m
             .content(format!("event starting <t:{}:R>", event.start_time.timestamp()))
-            .add_embed(|e| e
-                .colour(Colour(8794372))
-                .title(title)
-                .description(event.discord_location())
-                .field("starts", format!("<t:{}:F>", event.start_time.timestamp()), false)
-                .field("ends", format!("<t:{}:F>", event.end_time.timestamp()), false)
-            )
+            .add_embed(|e| {
+                e.colour(Colour(8794372));
+                e.title(title);
+                if let Some(loc) = event.discord_location() {
+                    e.description(loc);
+                }
+                e.field("starts", format!("<t:{}:F>", event.start_time.timestamp()), false);
+                e.field("ends", format!("<t:{}:F>", event.end_time.timestamp()), false);
+                e
+            })
         ).await?;
     }
     Ok(())

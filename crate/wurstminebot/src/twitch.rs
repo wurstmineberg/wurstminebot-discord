@@ -55,14 +55,16 @@ impl Config {
 
 pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
     loop {
-        let ctx = ctx_fut.read().await;
-        let data = (*ctx).data.read().await;
         let mut nick_map = HashMap::<String, String>::default();
-        let pool = data.get::<Database>().expect("missing database connection");
-        let mut query = sqlx::query!(r#"SELECT data->'minecraft'->'nicks'->-1 as "minecraft_nick!: Json<String>", data->'twitch'->'login' as "twitch_nick!: Json<String>" FROM people WHERE data->'minecraft'->'nicks'->-1 IS NOT NULL AND data->'twitch'->'login' IS NOT NULL"#)
-            .fetch(pool);
-        while let Some(person_data) = query.try_next().await? {
-            nick_map.insert(person_data.twitch_nick.0, person_data.minecraft_nick.0);
+        {
+            let ctx = ctx_fut.read().await;
+            let data = (*ctx).data.read().await;
+            let pool = data.get::<Database>().expect("missing database connection");
+            let mut query = sqlx::query!(r#"SELECT data->'minecraft'->'nicks'->-1 as "minecraft_nick!: Json<String>", data->'twitch'->'login' as "twitch_nick!: Json<String>" FROM people WHERE data->'minecraft'->'nicks'->-1 IS NOT NULL AND data->'twitch'->'login' IS NOT NULL"#)
+                .fetch(pool);
+            while let Some(person_data) = query.try_next().await? {
+                nick_map.insert(person_data.twitch_nick.0, person_data.minecraft_nick.0);
+            }
         }
         let client_config = ClientConfig::default(); //TODO use wurstminebot credentials
         let (mut incoming_messages, client) = TwitchIrcClient::<SecureTcpTransport, _>::new(client_config);
