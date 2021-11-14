@@ -5,8 +5,8 @@ After=network.target
 
 [Service]
 Restart=always
-ExecStart=/opt/wurstmineberg/.cargo/bin/cargo run --release
-ExecStop=/opt/git/github.com/wurstmineberg/wurstminebot-discord/master/target/release/wurstminebot quit
+ExecStart=/opt/wurstmineberg/bin/wurstminebot
+ExecStop=/opt/wurstmineberg/bin/wurstminebot quit
 User=wurstmineberg
 Group=wurstmineberg
 WorkingDirectory=/opt/git/github.com/wurstmineberg/wurstminebot-discord/master
