@@ -3,19 +3,14 @@
 #![allow(missing_docs)]
 
 use {
-    std::collections::HashSet,
     rand::prelude::*,
     serenity::{
         framework::standard::{
             Args,
-            CommandGroup,
             CommandResult,
-            HelpOptions,
-            help_commands,
             macros::{
                 command,
                 group,
-                help,
             },
         },
         model::prelude::*,
@@ -40,16 +35,9 @@ use {
         parse,
     },
 };
-pub use self::{
-    HELP as HELP_COMMAND,
-    MAIN_GROUP as GROUP,
-};
+pub use self::MAIN_GROUP as GROUP;
 
-#[help]
-async fn help(ctx: &Context, msg: &Message, args: Args, help_options: &'static HelpOptions, groups: &[&'static CommandGroup], owners: HashSet<UserId>) -> CommandResult {
-    let _ = help_commands::with_embeds(ctx, msg, args, help_options, groups, owners).await;
-    Ok(())
-}
+//TODO `/event` any-admin command to add or edit calendar events
 
 #[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
 /// Give yourself a self-assignable role
@@ -114,17 +102,20 @@ async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> ser
     Ok(NoResponse)
 }
 
-#[command]
-#[owners_only] //TODO allow any admin to use this command
-async fn update(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
-        msg.reply(ctx, MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…")).await?;
-        World::new(world_name).update(VersionSpec::LatestRelease).await?;
-        msg.reply_ping(ctx, "Done!").await?;
+#[serenity_utils::slash_command(WURSTMINEBERG, allow(ADMIN))]
+/// Update Minecraft to the latest release
+async fn update(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
+    if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == interaction.channel_id) {
+        interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content(MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…")))).await?;
+        let reply = match World::new(world_name).update(VersionSpec::LatestRelease).await { //TODO allow optional args for different version specs?
+            Ok(()) => format!("Done!"),
+            Err(e) => MessageBuilder::default().push("World update error: ").push_safe(&e).push(" (").push_mono_safe(format!("{:?}", e)).push(")").build(),
+        };
+        interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content(reply))).await?;
     } else {
-        msg.reply(ctx, "This channel has no associated Minecraft world.").await?;
+        interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("This channel has no associated Minecraft world.").flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL))).await?;
     }
-    Ok(())
+    Ok(NoResponse)
 }
 
 #[command]
@@ -147,7 +138,6 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
 #[group]
 #[commands(
     poll,
-    update,
     veto,
-)] //TODO any-admin command to add a calendar event
+)]
 struct Main;
