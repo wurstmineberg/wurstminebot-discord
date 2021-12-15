@@ -72,14 +72,15 @@ async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description =
     Ok("role removed")
 }
 
-#[command]
-pub async fn ping(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
-    let reply = {
-        let mut rng = thread_rng();
-        if rng.gen_bool(0.01) { format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5))) } else { format!("pong") }
-    };
-    msg.reply(ctx, reply).await?;
-    Ok(())
+#[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
+/// Test if wurstminebot is online
+fn ping() -> String {
+    let mut rng = thread_rng();
+    if rng.gen_bool(0.01) {
+        format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)))
+    } else {
+        format!("pong")
+    }
 }
 
 #[command]
@@ -139,7 +140,6 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
 
 #[group]
 #[commands(
-    ping,
     poll,
     quit,
     update,
