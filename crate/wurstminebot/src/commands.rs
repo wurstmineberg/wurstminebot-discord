@@ -22,11 +22,16 @@ use {
         prelude::*,
         utils::MessageBuilder,
     },
+    serenity_utils::{
+        shut_down,
+        slash::*,
+    },
     systemd_minecraft::{
         VersionSpec,
         World,
     },
     crate::{
+        ADMIN,
         Database,
         GENERAL,
         WURSTMINEBERG,
@@ -101,11 +106,12 @@ pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     Ok(())
 }
 
-#[command]
-#[owners_only]
-async fn quit(ctx: &Context, _: &Message, _: Args) -> CommandResult {
-    serenity_utils::shut_down(&ctx).await;
-    Ok(())
+#[serenity_utils::slash_command(WURSTMINEBERG, allow(ADMIN))]
+/// Shut down wurstminebot
+async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
+    interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("shutting down…"))).await?;
+    shut_down(&ctx).await;
+    Ok(NoResponse)
 }
 
 #[command]
@@ -141,7 +147,6 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
 #[group]
 #[commands(
     poll,
-    quit,
     update,
     veto,
 )] //TODO any-admin command to add a calendar event
