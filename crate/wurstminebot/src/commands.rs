@@ -29,6 +29,7 @@ use {
     crate::{
         Database,
         GENERAL,
+        WURSTMINEBERG,
         config::Config,
         emoji,
         parse,
@@ -45,62 +46,30 @@ async fn help(ctx: &Context, msg: &Message, args: Args, help_options: &'static H
     Ok(())
 }
 
-#[command]
-pub async fn iam(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let mut sender = if let Ok(sender) = msg.member(ctx).await {
-        sender
-    } else {
-        //TODO get from `WURSTMINEBERG` guild instead of erroring
-        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry").await?;
-        return Ok(());
-    };
-    let mut cmd = args.message();
-    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(ctx).await).await {
-        role
-    } else {
-        msg.reply(ctx, "no such role").await?;
-        return Ok(());
-    };
-    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
-        msg.reply(ctx, "this role is not self-assignable").await?;
-        return Ok(());
+#[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
+/// Give yourself a self-assignable role
+async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "the role to add")] role: Role) -> serenity::Result<&'static str> {
+    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role.id) {
+        return Ok("this role is not self-assignable") //TODO submit role list on command creation
     }
-    if sender.roles.contains(&role) {
-        msg.reply(ctx, "you already have this role").await?;
-        return Ok(());
+    if member.roles.contains(&role.id) {
+        return Ok("you already have this role")
     }
-    sender.add_role(&ctx, role).await?;
-    msg.reply(ctx, "role added").await?;
-    Ok(())
+    member.add_role(&ctx, role).await?;
+    Ok("role added")
 }
 
-#[command]
-pub async fn iamn(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    let mut sender = if let Ok(sender) = msg.member(&ctx).await {
-        sender
-    } else {
-        //TODO get from `WURSTMINEBERG` guild instead of erroring
-        msg.reply(ctx, "due to a technical limitation, this command currently doesn't work in DMs, sorry").await?;
-        return Ok(());
-    };
-    let mut cmd = args.message();
-    let role = if let Some(role) = parse::eat_role_full(&mut cmd, msg.guild(&ctx).await).await {
-        role
-    } else {
-        msg.reply(ctx, "no such role").await?;
-        return Ok(());
-    };
-    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role) {
-        msg.reply(ctx, "this role is not self-assignable").await?;
-        return Ok(());
+#[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
+/// Remove a self-assignable role from yourself
+async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "the role to remove")] role: Role) -> serenity::Result<&'static str> {
+    if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role.id) {
+        return Ok("this role is not self-assignable") //TODO submit role list on command creation
     }
-    if !sender.roles.contains(&role) {
-        msg.reply(ctx, "you already don't have this role").await?;
-        return Ok(());
+    if !member.roles.contains(&role.id) {
+        return Ok("you already don't have this role")
     }
-    sender.remove_role(&ctx, role).await?;
-    msg.reply(ctx, "role removed").await?;
-    Ok(())
+    member.remove_role(&ctx, role).await?;
+    Ok("role removed")
 }
 
 #[command]
@@ -170,8 +139,6 @@ async fn veto(ctx: &Context, _: &Message, args: Args) -> CommandResult {
 
 #[group]
 #[commands(
-    iam,
-    iamn,
     ping,
     poll,
     quit,
