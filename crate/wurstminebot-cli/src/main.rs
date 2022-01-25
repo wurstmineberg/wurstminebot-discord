@@ -223,7 +223,23 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                         extra
                     });
                 }
-                tellraw(&World::new(world_name), "@a", &chat).await?;
+                match tellraw(&World::new(world_name), "@a", &chat).await {
+                    Ok(_) => {}
+                    Err(Error::Minecraft(systemd_minecraft::Error::Rcon(rcon::Error::CommandTooLong))) => {
+                        let mut chat = Chat::from(format!(
+                            "[Discord:#{}] long message from ",
+                            if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
+                        ));
+                        chat.color(minecraft::chat::Color::Aqua);
+                        chat.add_extra({
+                            let mut extra = Chat::from(msg.member.as_ref().and_then(|member| member.nick.as_deref()).unwrap_or(&msg.author.name));
+                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
+                            extra
+                        });
+                        tellraw(&World::new(world_name), "@a", &chat).await?;
+                    }
+                    Err(e) => return Err(e.into()),
+                }
             }
             Ok(())
         }))

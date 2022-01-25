@@ -3648,6 +3648,7 @@ dependencies = [
  "itertools",
  "minecraft 0.1.2",
  "minecraft 6.1.2",
+ "rcon",
  "serde_json",
  "serenity",
  "serenity-utils",
