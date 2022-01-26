@@ -201,10 +201,19 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             if msg.author.bot { return Ok(()) } // ignore bots to prevent message loops
             if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
                 let mut chat = Chat::from(format!(
-                    "[Discord:#{}] ",
+                    "[Discord:#{}",
                     if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
                 ));
                 chat.color(minecraft::chat::Color::Aqua);
+                if let Some(ref in_reply_to) = msg.referenced_message {
+                    chat.add_extra(", replying to ");
+                    chat.add_extra({
+                        let mut extra = Chat::from(in_reply_to.member.as_ref().and_then(|member| member.nick.as_deref()).unwrap_or(&in_reply_to.author.name));
+                        extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(in_reply_to.author.tag()))));
+                        extra
+                    });
+                }
+                chat.add_extra("] ");
                 chat.add_extra({
                     let mut extra = Chat::from(format!("<{}>", msg.member.as_ref().and_then(|member| member.nick.as_ref()).unwrap_or(&msg.author.name)));
                     extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
