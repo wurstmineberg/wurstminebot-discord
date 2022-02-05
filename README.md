@@ -9,8 +9,12 @@ Currently, the bot has the following features:
 * **IPC interface:** A set of [commands](https://github.com/wurstmineberg/wurstminebot-discord/blob/main/crate/wurstminebot/src/ipc.rs) that can be run by other processes on the server, such as [the website](https://github.com/wurstmineberg/wurstmineberg.de), to make the bot do stuff. For example, this is used to post a message in the Discord channel #wiki when [our wiki](https://wurstmineberg.de/wiki) is edited.
 * **Twitch chat integration:** For members who have signed in with a [Twitch](https://twitch.tv/) account on our website, their Twitch chat is displayed in-game for convenience.
 * **Voice state exporter:** Writes information about who is currently connected to voice channels to disk for consumption by [the API](https://wurstmineberg.de/api).
+* **Event calendar:** The bot posts reminders about upcoming special events to #general, and also hosts the calendar portion of [the Wurstmineberg API](https://wurstmineberg.de/api).
 
 # Installation
 
-1. [Install Rust](https://www.rust-lang.org/tools/install)
-2. `sudo systemctl enable --now assets/wurstminebot.service`
+1. On Wurstmineberg, clone this repo
+2. Inside the repo, run `sudo systemctl enable assets/wurstminebot.service`
+3. [Install Rust](https://www.rust-lang.org/tools/install) on the computer where you want to build wurstminebot. (Building on Wurstmineberg is not recommended, as it can cause Minecraft to be OOM killed.)
+4. Clone this repo
+5. Inside the repo, run `assets/deploy.ps1`
