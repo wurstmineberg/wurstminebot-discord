@@ -11,6 +11,7 @@ ics = "0.5"
 itertools = "0.10"
 lazy-regex = "2"
 rand = "0.8"
+rcon = "0.6"
 rocket = "0.5.0-rc.1"
 serde_json = "1" #TODO make sure enabling the arbitrary_precision feature doesn't break anything
 serenity = "0.11"

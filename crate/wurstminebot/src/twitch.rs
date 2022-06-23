@@ -2,6 +2,7 @@ use {
     std::{
         collections::HashMap,
         convert::Infallible as Never,
+        io,
     },
     futures::stream::TryStreamExt as _,
     minecraft::chat::Chat,
@@ -75,7 +76,11 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
             match msg {
                 ServerMessage::Join(join) => if let Some(minecraft_nick) = nick_map.get(&join.channel_login) {
                     for world in World::all_running().await? {
-                        tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::chat::Color::Aqua)).await?;
+                        match tellraw(&world, minecraft_nick, Chat::from(format!("[Twitch] reconnected")).color(minecraft::chat::Color::Aqua)).await {
+                            Ok(_) => {}
+                            Err(Error::Minecraft(systemd_minecraft::Error::Rcon(rcon::Error::Io(e)))) if e.kind() == io::ErrorKind::ConnectionRefused => {} // Minecraft world not fully running yet, skip “reconnected” message
+                            Err(e) => return Err(e),
+                        }
                     }
                 },
                 ServerMessage::Part(part) => if let Some(minecraft_nick) = nick_map.get(&part.channel_login) {
