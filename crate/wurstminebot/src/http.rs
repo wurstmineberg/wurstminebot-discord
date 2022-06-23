@@ -16,13 +16,12 @@ use {
         Request,
         Rocket,
         State,
-        http::ContentType,
         response::{
             Debug,
             Responder,
-            content::Custom,
         },
     },
+    rocket_util::Response,
     serenity::prelude::*,
     serenity_utils::RwFuture,
     sqlx::types::Json,
@@ -52,7 +51,7 @@ fn ics_datetime<Tz: TimeZone>(datetime: DateTime<Tz>) -> String {
 }
 
 #[rocket::get("/api/v3/calendar.ics")]
-async fn calendar(ctx_fut: &State<RwFuture<Context>>) -> Result<Custom<Vec<u8>>, Error> {
+async fn calendar(ctx_fut: &State<RwFuture<Context>>) -> Result<Response<ICalendar<'_>>, Error> {
     let mut cal = ICalendar::new("2.0", concat!("wurstmineberg.de/", env!("CARGO_PKG_VERSION")));
     let ctx = ctx_fut.read().await;
     let data = (*ctx).data.read().await;
@@ -68,9 +67,7 @@ async fn calendar(ctx_fut: &State<RwFuture<Context>>) -> Result<Custom<Vec<u8>>,
         cal_event.push(DtEnd::new(ics_datetime(event.end_time)));
         cal.add_event(cal_event);
     }
-    let mut buf = Vec::default();
-    cal.write(&mut buf)?; //TODO async/spawn_blocking?
-    Ok(Custom(ContentType::Calendar, buf))
+    Ok(Response(cal))
 }
 
 pub fn rocket(ctx_fut: RwFuture<Context>) -> Rocket<rocket::Build> {

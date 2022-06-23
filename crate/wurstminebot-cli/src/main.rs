@@ -43,7 +43,7 @@ use {
         Database,
         Error,
         cal,
-        commands,
+        commands::*,
         config::Config,
         http,
         minecraft::tellraw,
@@ -185,7 +185,10 @@ fn discord_to_minecraft<'a>(ctx: &'a Context, msg: &'a Message, chat: &'a mut Ch
     })
 }
 
-#[serenity_utils::main(ipc = "wurstminebot::ipc")]
+#[serenity_utils::main(
+    ipc = "wurstminebot::ipc",
+    slash_commands(iam, iamn, ping, quit, update),
+)]
 async fn main() -> Result<serenity_utils::Builder, Error> {
     let config = Config::new().await?;
     Ok(serenity_utils::builder(388416898825584640, config.wurstminebot.bot_token.clone()).await?
@@ -202,7 +205,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
                 let mut chat = Chat::from(format!(
                     "[Discord:#{}",
-                    if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
+                    if let Channel::Guild(chan) = msg.channel(&ctx).await? { chan.name.clone() } else { format!("?") },
                 ));
                 chat.color(minecraft::chat::Color::Aqua);
                 if let Some(ref in_reply_to) = msg.referenced_message {
@@ -237,7 +240,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                     Err(Error::Minecraft(systemd_minecraft::Error::Rcon(rcon::Error::CommandTooLong))) => {
                         let mut chat = Chat::from(format!(
                             "[Discord:#{}] long message from ",
-                            if let Some(Channel::Guild(chan)) = msg.channel(&ctx).await { chan.name.clone() } else { format!("?") },
+                            if let Channel::Guild(chan) = msg.channel(&ctx).await? { chan.name.clone() } else { format!("?") },
                         ));
                         chat.color(minecraft::chat::Color::Aqua);
                         chat.add_extra({
@@ -254,7 +257,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         }))
         .event_handler(serenity_utils::handler::user_list_exporter::<UserListExporter>())
         .event_handler(serenity_utils::handler::voice_state_exporter::<VoiceStateExporter>())
-        .message_commands(Some("!"), &commands::GROUP) //TODO migrate to slash commands
+        .message_commands(Some("!"), &GROUP) //TODO migrate to slash commands
         .data::<Config>(config)
         .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("wurstmineberg").application_name("wurstminebot")).await?)
         .task(|ctx_fut, notify_thread_crash| async move {

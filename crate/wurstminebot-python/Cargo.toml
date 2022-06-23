@@ -12,10 +12,10 @@ crate-type = ["cdylib"]
 path = "../wurstminebot-ipc"
 
 [dependencies.pyo3]
-version = "0.15"
+version = "0.16"
 features = ["extension-module"]
 
 [dependencies.serenity]
-version = "0.10"
+version = "0.11"
 default-features = false
 features = ["model", "rustls_backend", "utils"]

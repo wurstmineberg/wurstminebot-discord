@@ -41,7 +41,7 @@ pub use self::MAIN_GROUP as GROUP;
 
 #[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
 /// Give yourself a self-assignable role
-async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "the role to add")] role: Role) -> serenity::Result<&'static str> {
+pub async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = "the role to add")] role: Role) -> serenity::Result<&'static str> {
     if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role.id) {
         return Ok("this role is not self-assignable") //TODO submit role list on command creation
     }
@@ -54,7 +54,7 @@ async fn iam(ctx: &Context, member: &mut Member, #[serenity_utils(description = 
 
 #[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
 /// Remove a self-assignable role from yourself
-async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "the role to remove")] role: Role) -> serenity::Result<&'static str> {
+pub async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description = "the role to remove")] role: Role) -> serenity::Result<&'static str> {
     if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role.id) {
         return Ok("this role is not self-assignable") //TODO submit role list on command creation
     }
@@ -67,7 +67,7 @@ async fn iamn(ctx: &Context, member: &mut Member, #[serenity_utils(description =
 
 #[serenity_utils::slash_command(WURSTMINEBERG, allow_all)]
 /// Test if wurstminebot is online
-fn ping() -> String {
+pub fn ping() -> String {
     let mut rng = thread_rng();
     if rng.gen_bool(0.01) {
         format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)))
@@ -96,7 +96,7 @@ pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 
 #[serenity_utils::slash_command(WURSTMINEBERG, allow(ADMIN))]
 /// Shut down wurstminebot
-async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
+pub async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
     interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("shutting down…"))).await?;
     shut_down(&ctx).await;
     Ok(NoResponse)
@@ -104,7 +104,7 @@ async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> ser
 
 #[serenity_utils::slash_command(WURSTMINEBERG, allow(ADMIN))]
 /// Update Minecraft to the latest release
-async fn update(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
+pub async fn update(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
     if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == interaction.channel_id) {
         interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content(MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…")))).await?;
         let reply = match World::new(world_name).update(VersionSpec::LatestRelease).await { //TODO allow optional args for different version specs?

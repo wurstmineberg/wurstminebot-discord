@@ -69,7 +69,7 @@ pub async fn listen_chat(ctx_fut: RwFuture<Context>) -> Result<Never, Error> {
         let client_config = ClientConfig::default(); //TODO use wurstminebot credentials
         let (mut incoming_messages, client) = TwitchIrcClient::<SecureTcpTransport, _>::new(client_config);
         for twitch_nick in nick_map.keys() {
-            client.join(twitch_nick.clone()); //TODO dynamically join/leave channels as nick map is updated
+            client.join(twitch_nick.clone())?; //TODO dynamically join/leave channels as nick map is updated
         }
         while let Some(msg) = incoming_messages.recv().await { //TODO move to a separate task, start before initial joins
             match msg {

@@ -6,11 +6,9 @@
 use {
     std::{
         env,
-        fmt,
         io,
         path::Path,
     },
-    derive_more::From,
     sqlx::PgPool,
     serenity::{
         model::prelude::*,
@@ -48,58 +46,30 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
 }
 
 /// Errors that may occur in this crate.
-#[derive(Debug, From)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error(transparent)] ChannelIdParse(#[from] ChannelIdParseError),
+    #[error(transparent)] Envar(#[from] env::VarError),
+    #[error(transparent)] Io(#[from] io::Error),
+    #[error(transparent)] Ipc(#[from] crate::ipc::Error),
+    #[error(transparent)] Join(#[from] tokio::task::JoinError),
+    #[error(transparent)] Json(#[from] serde_json::Error),
+    #[cfg(unix)] #[error(transparent)] Log(#[from] log::Error),
+    #[error(transparent)] Minecraft(#[from] systemd_minecraft::Error),
+    #[error(transparent)] Serenity(#[from] serenity::Error),
+    #[error(transparent)] Sql(#[from] sqlx::Error),
+    #[error(transparent)] Twitch(#[from] twitch_helix::Error),
+    #[error(transparent)] TwitchValidate(#[from] twitch_irc::validate::Error),
+    #[error(transparent)] UserIdParse(#[from] UserIdParseError),
+    #[error("{0}: {1}")]
     Annotated(String, Box<Error>),
-    ChannelIdParse(ChannelIdParseError),
-    Envar(env::VarError),
-    Io(io::Error),
-    Ipc(crate::ipc::Error),
-    Join(tokio::task::JoinError),
-    Json(serde_json::Error),
-    #[cfg(unix)]
-    Log(log::Error),
-    #[from(ignore)]
+    #[error("IRC channel name \"{0}\" doesn't start with \"#\"")]
     MalformedTwitchChannelName(String),
-    Minecraft(systemd_minecraft::Error),
-    /// Returned if a Serenity context was required outside of an event handler but the `ready` event has not been received yet.
-    MissingContext,
-    /// Returned by the user list handler if a user has no join date.
+    #[error("encountered user without join date")]
     MissingJoinDate,
-    Serenity(serenity::Error),
-    Sql(sqlx::Error),
-    Twitch(twitch_helix::Error),
-    #[from(ignore)]
+    #[error("no Minecraft nick matching Twitch nick \"{0}\"")]
     UnknownTwitchNick(String),
-    UserIdParse(UserIdParseError),
 }
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Annotated(msg, e) => write!(f, "{}: {}", msg, e),
-            Error::ChannelIdParse(e) => e.fmt(f),
-            Error::Envar(e) => e.fmt(f),
-            Error::Io(e) => write!(f, "I/O error: {}", e),
-            Error::Ipc(e) => e.fmt(f),
-            Error::Join(e) => e.fmt(f),
-            Error::Json(e) => write!(f, "JSON error: {}", e),
-            #[cfg(unix)]
-            Error::Log(e) => e.fmt(f),
-            Error::MalformedTwitchChannelName(channel_name) => write!(f, "IRC channel name \"{}\" doesn't start with \"#\"", channel_name),
-            Error::Minecraft(e) => e.fmt(f),
-            Error::MissingContext => write!(f, "Serenity context not available before ready event"),
-            Error::MissingJoinDate => write!(f, "encountered user without join date"),
-            Error::Serenity(e) => e.fmt(f),
-            Error::Sql(e) => e.fmt(f),
-            Error::Twitch(e) => e.fmt(f),
-            Error::UnknownTwitchNick(channel_name) => write!(f, "no Minecraft nick matching Twitch nick \"{}\"", channel_name),
-            Error::UserIdParse(e) => e.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
 
 /// A helper trait for annotating errors with more informative error messages.
 pub trait IntoResultExt {
