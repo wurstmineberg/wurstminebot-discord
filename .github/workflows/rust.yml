@@ -29,6 +29,10 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: build
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions-rs/cargo@v1
       with:
         command: test
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
