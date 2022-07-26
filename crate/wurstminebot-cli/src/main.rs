@@ -36,6 +36,7 @@ use {
     systemd_minecraft::World,
     tokio::{
         fs,
+        process::Command,
         time::sleep,
     },
     wurstminebot::{
@@ -203,54 +204,56 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         .on_message(|ctx, msg| Box::pin(async move {
             if msg.author.bot { return Ok(()) } // ignore bots to prevent message loops
             if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
-                let mut chat = Chat::from(format!(
-                    "[Discord:#{}",
-                    if let Channel::Guild(chan) = msg.channel(&ctx).await? { chan.name.clone() } else { format!("?") },
-                ));
-                chat.color(minecraft::chat::Color::Aqua);
-                if let Some(ref in_reply_to) = msg.referenced_message {
-                    chat.add_extra(", replying to ");
-                    chat.add_extra({
-                        let mut extra = Chat::from(in_reply_to.member.as_ref().and_then(|member| member.nick.as_deref()).unwrap_or(&in_reply_to.author.name));
-                        extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(in_reply_to.author.tag()))));
-                        extra
-                    });
-                }
-                chat.add_extra("] ");
-                chat.add_extra({
-                    let mut extra = Chat::from(format!("<{}>", msg.member.as_ref().and_then(|member| member.nick.as_ref()).unwrap_or(&msg.author.name)));
-                    extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
-                    extra
-                });
-                chat.add_extra(" ");
-                discord_to_minecraft(&ctx, &msg, &mut chat, msg.parse()).await?;
-                for attachment in &msg.attachments {
-                    chat.add_extra(" ");
-                    chat.add_extra({
-                        let mut extra = Chat::from(format!("[{}]", attachment.filename));
-                        extra.color(minecraft::chat::Color::Blue);
-                        extra.underlined();
-                        extra.on_click(minecraft::chat::ClickEvent::OpenUrl(attachment.url.clone()));
-                        extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(&*attachment.url))));
-                        extra
-                    });
-                }
-                match tellraw(&World::new(world_name), "@a", &chat).await {
-                    Ok(_) => {}
-                    Err(Error::Minecraft(systemd_minecraft::Error::Rcon(rcon::Error::CommandTooLong))) => {
-                        let mut chat = Chat::from(format!(
-                            "[Discord:#{}] long message from ",
-                            if let Channel::Guild(chan) = msg.channel(&ctx).await? { chan.name.clone() } else { format!("?") },
-                        ));
-                        chat.color(minecraft::chat::Color::Aqua);
+                if Command::new("systemctl").arg("is-active").arg(format!("minecraft@{world_name}.service")).status().await?.success() {
+                    let mut chat = Chat::from(format!(
+                        "[Discord:#{}",
+                        if let Channel::Guild(chan) = msg.channel(&ctx).await? { chan.name.clone() } else { format!("?") },
+                    ));
+                    chat.color(minecraft::chat::Color::Aqua);
+                    if let Some(ref in_reply_to) = msg.referenced_message {
+                        chat.add_extra(", replying to ");
                         chat.add_extra({
-                            let mut extra = Chat::from(msg.member.as_ref().and_then(|member| member.nick.as_deref()).unwrap_or(&msg.author.name));
-                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
+                            let mut extra = Chat::from(in_reply_to.member.as_ref().and_then(|member| member.nick.as_deref()).unwrap_or(&in_reply_to.author.name));
+                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(in_reply_to.author.tag()))));
                             extra
                         });
-                        tellraw(&World::new(world_name), "@a", &chat).await?;
                     }
-                    Err(e) => return Err(e.into()),
+                    chat.add_extra("] ");
+                    chat.add_extra({
+                        let mut extra = Chat::from(format!("<{}>", msg.member.as_ref().and_then(|member| member.nick.as_ref()).unwrap_or(&msg.author.name)));
+                        extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
+                        extra
+                    });
+                    chat.add_extra(" ");
+                    discord_to_minecraft(&ctx, &msg, &mut chat, msg.parse()).await?;
+                    for attachment in &msg.attachments {
+                        chat.add_extra(" ");
+                        chat.add_extra({
+                            let mut extra = Chat::from(format!("[{}]", attachment.filename));
+                            extra.color(minecraft::chat::Color::Blue);
+                            extra.underlined();
+                            extra.on_click(minecraft::chat::ClickEvent::OpenUrl(attachment.url.clone()));
+                            extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(&*attachment.url))));
+                            extra
+                        });
+                    }
+                    match tellraw(&World::new(world_name), "@a", &chat).await {
+                        Ok(_) => {}
+                        Err(Error::Minecraft(systemd_minecraft::Error::Rcon(rcon::Error::CommandTooLong))) => {
+                            let mut chat = Chat::from(format!(
+                                "[Discord:#{}] long message from ",
+                                if let Channel::Guild(chan) = msg.channel(&ctx).await? { chan.name.clone() } else { format!("?") },
+                            ));
+                            chat.color(minecraft::chat::Color::Aqua);
+                            chat.add_extra({
+                                let mut extra = Chat::from(msg.member.as_ref().and_then(|member| member.nick.as_deref()).unwrap_or(&msg.author.name));
+                                extra.on_hover(minecraft::chat::HoverEvent::ShowText(Box::new(Chat::from(msg.author.tag()))));
+                                extra
+                            });
+                            tellraw(&World::new(world_name), "@a", &chat).await?;
+                        }
+                        Err(e) => return Err(e.into()),
+                    }
                 }
             }
             Ok(())

@@ -37,7 +37,7 @@ package = "minecraft"
 
 [dependencies.tokio]
 version = "1.3"
-features = ["fs", "macros", "rt-multi-thread"]
+features = ["fs", "macros", "process", "rt-multi-thread", "time"]
 
 [dependencies.wurstminebot]
 path = "../wurstminebot"
