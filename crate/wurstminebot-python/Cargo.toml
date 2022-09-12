@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 path = "../wurstminebot-ipc"
 
 [dependencies.pyo3]
-version = "0.16"
+version = "0.17"
 features = ["extension-module"]
 
 [dependencies.serenity]

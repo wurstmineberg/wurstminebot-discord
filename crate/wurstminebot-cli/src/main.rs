@@ -201,7 +201,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             }
             Ok(())
         }))
-        .on_message(|ctx, msg| Box::pin(async move {
+        .on_message(true, |ctx, msg| Box::pin(async move {
             if msg.author.bot { return Ok(()) } // ignore bots to prevent message loops
             if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == msg.channel_id) {
                 if Command::new("systemctl").arg("is-active").arg(format!("minecraft@{world_name}.service")).status().await?.success() {

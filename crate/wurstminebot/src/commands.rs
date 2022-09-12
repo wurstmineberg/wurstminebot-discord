@@ -19,7 +19,10 @@ use {
     },
     serenity_utils::{
         shut_down,
-        slash::*,
+        slash::{
+            self,
+            *,
+        },
     },
     systemd_minecraft::{
         VersionSpec,
@@ -113,7 +116,7 @@ pub async fn update(ctx: &Context, interaction: &ApplicationCommandInteraction) 
         };
         interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content(reply))).await?;
     } else {
-        interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("This channel has no associated Minecraft world.").flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL))).await?;
+        interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("This channel has no associated Minecraft world.").flags(slash::MessageFlags::EPHEMERAL))).await?;
     }
     Ok(NoResponse)
 }
