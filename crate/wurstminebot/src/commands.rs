@@ -113,7 +113,7 @@ pub async fn update(ctx: &Context, interaction: &ApplicationCommandInteraction) 
             Ok(()) => format!("Done!"),
             Err(e) => MessageBuilder::default().push("World update error: ").push_safe(&e).push(" (").push_mono_safe(format!("{:?}", e)).push(")").build(),
         };
-        interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content(reply))).await?;
+        interaction.channel_id.say(ctx, reply).await?;
     } else {
         interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("This channel has no associated Minecraft world.").flags(slash::MessageFlags::EPHEMERAL))).await?;
     }
