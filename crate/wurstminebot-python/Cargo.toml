@@ -1,8 +1,8 @@
 [package]
 name = "wurstminebot-python"
-version = "0.1.0"
-authors = ["Fenhl <fenhl@fenhl.net>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [lib]
 name = "wurstminebot"

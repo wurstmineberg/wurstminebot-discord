@@ -38,8 +38,6 @@ pub const WURSTMINEBERG: GuildId = GuildId(88318761228054528);
 pub(crate) const GENERAL: ChannelId = ChannelId(88318761228054528);
 pub const DEV: ChannelId = ChannelId(506905544901001228);
 
-pub(crate) const ADMIN: RoleId = RoleId(88329417788502016);
-
 /// The directory where all Wurstmineberg-related files are located: `/opt/wurstmineberg`.
 pub fn base_path() -> &'static Path { //TODO make this a constant when stable
     Path::new("/opt/wurstmineberg")

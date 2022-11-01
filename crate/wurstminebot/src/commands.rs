@@ -29,7 +29,6 @@ use {
         World,
     },
     crate::{
-        ADMIN,
         Database,
         GENERAL,
         WURSTMINEBERG,
@@ -97,7 +96,7 @@ pub async fn poll(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
     Ok(())
 }
 
-#[serenity_utils::slash_command(WURSTMINEBERG, allow(ADMIN))]
+#[serenity_utils::slash_command(WURSTMINEBERG)]
 /// Shut down wurstminebot
 pub async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
     interaction.create_interaction_response(ctx, |builder| builder.interaction_response_data(|data| data.content("shutting down…"))).await?;
@@ -105,7 +104,7 @@ pub async fn quit(ctx: &Context, interaction: &ApplicationCommandInteraction) ->
     Ok(NoResponse)
 }
 
-#[serenity_utils::slash_command(WURSTMINEBERG, allow(ADMIN))]
+#[serenity_utils::slash_command(WURSTMINEBERG)]
 /// Update Minecraft to the latest release
 pub async fn update(ctx: &Context, interaction: &ApplicationCommandInteraction) -> serenity::Result<NoResponse> {
     if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == interaction.channel_id) {
