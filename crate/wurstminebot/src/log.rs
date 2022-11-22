@@ -130,13 +130,13 @@ impl FromStr for RegularLine {
     type Err = Never;
 
     fn from_str(s: &str) -> Result<RegularLine, Never> {
-        Ok(if let Some((_, sender, msg)) = regex_captures!("^<([A-Za-z0-9_]{3,16})> (.+)$", s) {
+        Ok(if let Some((_, sender, msg)) = regex_captures!("^(?:\\[Not Secure\\] )?<([A-Za-z0-9_]{3,16})> (.+)$", s) {
             RegularLine::Chat {
                 sender: sender.to_owned(),
                 msg: msg.to_owned(),
                 is_action: false,
             }
-        } else if let Some((_, sender, msg)) = regex_captures!("^\\* ([A-Za-z0-9_]{3,16}) (.+)$", s) {
+        } else if let Some((_, sender, msg)) = regex_captures!("^(?:\\[Not Secure\\] )?\\* ([A-Za-z0-9_]{3,16}) (.+)$", s) {
             RegularLine::Chat {
                 sender: sender.to_owned(),
                 msg: msg.to_owned(),
