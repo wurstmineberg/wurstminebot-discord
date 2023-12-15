@@ -87,7 +87,7 @@ impl Event {
             EventKind::Renascence { hub_coords: [x, z], .. } => Some(Cow::Owned(format!("Hub {}, {}\nThe Nether\nWurstmineberg", x, z))),
             EventKind::RenascenceDragonFight { ref settlement } => Some(Cow::Owned(format!("{}\nWurstmineberg", settlement))),
             EventKind::Tour { area: Some(ref area), .. } => Some(Cow::Owned(format!("{}\nWurstmineberg", area))),
-            EventKind::Tour { area: None, .. } => Some(Cow::Borrowed(if self.start_time >= Utc.ymd(2019, 4, 7).and_hms(0, 0, 0) {
+            EventKind::Tour { area: None, .. } => Some(Cow::Borrowed(if self.start_time >= Utc.with_ymd_and_hms(2019, 4, 7, 0, 0, 0).single().expect("invalid UTC datetime") {
                 "spawn platform\nZucchini\nWurstmineberg"
             } else {
                 "Platz des Ursprungs\nWurstmineberg"
@@ -104,7 +104,7 @@ impl Event {
             EventKind::Renascence { hub_coords: [x, z], .. } => Some(Cow::Owned(format!("[Hub](https://wurstmineberg.de/wiki/nether-hub-system) {}, {}\nThe Nether\nWurstmineberg", x, z))),
             EventKind::RenascenceDragonFight { ref settlement } => Some(Cow::Owned(format!("[{}](https://wurstmineberg.de/renascence#{})\nWurstmineberg", settlement, settlement.to_lowercase()))),
             EventKind::Tour { area: Some(ref area), .. } => Some(Cow::Owned(format!("{}\nWurstmineberg", area))),
-            EventKind::Tour { area: None, .. } => Some(Cow::Borrowed(if self.start_time >= Utc.ymd(2019, 4, 7).and_hms(0, 0, 0) {
+            EventKind::Tour { area: None, .. } => Some(Cow::Borrowed(if self.start_time >= Utc.with_ymd_and_hms(2019, 4, 7, 0, 0, 0).single().expect("invalid UTC datetime") {
                 "spawn platform\n[Zucchini](https://wurstmineberg.de/wiki/renascence#zucchini)\nWurstmineberg"
             } else {
                 "[Platz des Ursprungs](https://wurstmineberg.de/wiki/old-spawn#platz-des-ursprungs)\nWurstmineberg"

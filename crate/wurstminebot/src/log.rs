@@ -113,6 +113,12 @@ impl FromStr for Level {
     }
 }
 
+enum AdvancementKind {
+    Challenge,
+    Goal,
+    Task,
+}
+
 enum RegularLine {
     Chat {
         sender: String,
@@ -122,6 +128,11 @@ enum RegularLine {
     PlayerUuid {
         nickname: String,
         uuid: Uuid,
+    },
+    Advancement {
+        kind: AdvancementKind,
+        player: String,
+        advancement: String,
     },
     Unknown(String),
 }
@@ -146,6 +157,24 @@ impl FromStr for RegularLine {
             RegularLine::PlayerUuid {
                 nickname: nickname.to_owned(),
                 uuid: uuid.parse().expect("UUID that matches regex should parse"),
+            }
+        } else if let Some((_, player, advancement)) = regex_captures!(r"^([A-Za-z0-9_]{3,16}) has completed the challenge \[(.+)\]$", s) {
+            RegularLine::Advancement {
+                kind: AdvancementKind::Challenge,
+                player: player.to_owned(),
+                advancement: advancement.to_owned(),
+            }
+        } else if let Some((_, player, advancement)) = regex_captures!(r"^([A-Za-z0-9_]{3,16}) has reached the goal \[(.+)\]$", s) {
+            RegularLine::Advancement {
+                kind: AdvancementKind::Goal,
+                player: player.to_owned(),
+                advancement: advancement.to_owned(),
+            }
+        } else if let Some((_, player, advancement)) = regex_captures!(r"^([A-Za-z0-9_]{3,16}) has made the advancement \[(.+)\]$", s) {
+            RegularLine::Advancement {
+                kind: AdvancementKind::Task,
+                player: player.to_owned(),
+                advancement: advancement.to_owned(),
             }
         } else {
             RegularLine::Unknown(s.to_owned())
@@ -197,7 +226,7 @@ fn follow(world: &World) -> impl Stream<Item = Result<Line, Error>> {
 
 pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO dynamically update handled worlds as they are added/removed
     let mut handles = Vec::default();
-    for world in World::all()? {
+    for world in World::all().await? {
         handles.push(tokio::spawn(handle_world(ctx_fut.clone(), world)));
     }
     match try_join_all(handles).await?.pop() {
@@ -239,6 +268,21 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                     }
                 }
                 RegularLine::PlayerUuid { nickname, uuid } => { player_uuids.insert(nickname, uuid); }
+                RegularLine::Advancement { kind, player, advancement } => {
+                    let ctx = ctx_fut.read().await;
+                    let ctx_data = (*ctx).data.read().await;
+                    if let Some(chan_id) = ctx_data.get::<crate::config::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
+                        chan_id.say(&*ctx, MessageBuilder::default()
+                            .push_safe(player)
+                            .push(match kind {
+                                AdvancementKind::Challenge => " has completed the challenge [",
+                                AdvancementKind::Goal => " has reached the goal [",
+                                AdvancementKind::Task => " has made the advancement [",
+                            })
+                            .push_safe(advancement)
+                            .push(']')).await?;
+                    }
+                }
                 RegularLine::Unknown(_) => {} // ignore all other lines for now
             },
             Line::Unknown(_) => {} // ignore all other lines for now
