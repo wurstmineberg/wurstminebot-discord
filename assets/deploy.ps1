@@ -5,7 +5,10 @@ function ThrowOnNativeFailure {
     }
 }
 
-wsl cargo build --release --package=wurstminebot-cli --package=wurstminebot-python
+git push
+ThrowOnNativeFailure
+
+wsl --distribution debian-m2 cargo build --release --package=wurstminebot-cli --package=wurstminebot-python
 ThrowOnNativeFailure
 
 ssh wurstmineberg.de sudo systemctl stop wurstminebot
