@@ -23,7 +23,7 @@ pub struct Config {
 pub struct ConfigWurstminebot {
     pub bot_token: String,
     #[serde(default)]
-    pub(crate) self_assignable_roles: BTreeSet<RoleId>,
+    pub self_assignable_roles: BTreeSet<RoleId>,
     #[serde(default)]
     pub world_channels: BTreeMap<String, ChannelId>,
 }

@@ -17,8 +17,16 @@ use {
     },
     itertools::Itertools as _,
     minecraft::chat::Chat,
+    rand::prelude::*,
     serde_json::json,
     serenity::{
+        all::{
+            CreateCommand,
+            CreateCommandOption,
+            CreateInteractionResponse,
+            CreateInteractionResponseMessage,
+            MessageBuilder,
+        },
         model::prelude::*,
         prelude::*,
     },
@@ -33,7 +41,10 @@ use {
         PgConnectOptions,
         PgPool,
     },
-    systemd_minecraft::World,
+    systemd_minecraft::{
+        VersionSpec,
+        World,
+    },
     tokio::{
         fs,
         process::Command,
@@ -43,8 +54,8 @@ use {
         DEV,
         Database,
         Error,
+        GENERAL,
         cal,
-        commands::*,
         config::Config,
         http,
         minecraft::tellraw,
@@ -68,7 +79,7 @@ impl serenity_utils::handler::user_list::ExporterMethods for UserListExporter {
                 "nick": &member.nick,
                 "roles": &member.roles,
                 "username": member.user.name,
-            }), member.user.id.0 as i64)
+            }), i64::from(member.user.id))
                 .execute(pool).await?;
             Ok(())
         })
@@ -83,11 +94,11 @@ impl serenity_utils::handler::user_list::ExporterMethods for UserListExporter {
         })
     }
 
-    fn remove<'a>(ctx: &'a Context, UserId(user_id): UserId, _: GuildId) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
+    fn remove<'a>(ctx: &'a Context, user_id: UserId, _: GuildId) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>> + Send + 'a>> {
         Box::pin(async move {
             let data = ctx.data.read().await;
             let pool = data.get::<Database>().expect("missing database connection");
-            sqlx::query!("UPDATE people SET discorddata = NULL WHERE snowflake = $1", user_id as i64)
+            sqlx::query!("UPDATE people SET discorddata = NULL WHERE snowflake = $1", i64::from(user_id))
                 .execute(pool).await?;
             Ok(())
         })
@@ -151,7 +162,6 @@ fn discord_to_minecraft<'a>(ctx: &'a Context, msg: &'a Message, chat: &'a mut Ch
                 let extra = Chat::from(match channel.to_channel(ctx).await? {
                     Channel::Guild(channel) => format!("#{}", channel.name),
                     Channel::Private(dm) => dm.name(),
-                    Channel::Category(category) => category.name,
                     _ => panic!("unexpected channel type"),
                 });
                 //TODO open channel in browser on click? (blue + underline)
@@ -186,16 +196,27 @@ fn discord_to_minecraft<'a>(ctx: &'a Context, msg: &'a Message, chat: &'a mut Ch
     })
 }
 
-#[serenity_utils::main(
-    ipc = "wurstminebot::ipc",
-    slash_commands(iam, iamn, ping, quit, update),
-)]
+#[derive(Clone, Copy)]
+struct CommandIds {
+    //TODO `/event` any-admin command to add or edit calendar events
+    iam: CommandId,
+    iamn: CommandId,
+    ping: CommandId,
+    update: CommandId,
+    veto: CommandId,
+}
+
+impl TypeMapKey for CommandIds {
+    type Value = Self;
+}
+
+#[serenity_utils::main(ipc = "wurstminebot::ipc")]
 async fn main() -> Result<serenity_utils::Builder, Error> {
     let config = Config::new().await?;
-    Ok(serenity_utils::builder(388416898825584640, config.wurstminebot.bot_token.clone()).await?
+    Ok(serenity_utils::builder(config.wurstminebot.bot_token.clone()).await?
         .error_notifier(ErrorNotifier::Channel(DEV))
         .on_ready(|ctx, ready| Box::pin(async move {
-            if ready.user.guilds(ctx).await.expect("failed to get guilds").len() > 1 {
+            if ready.guilds.len() > 1 {
                 println!("error: multiple guilds found (wurstminebot's code currently assumes that it's only in the Wurstmineberg guild)"); //TODO return as Err?
                 serenity_utils::shut_down(&ctx).await;
             }
@@ -258,9 +279,177 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
             }
             Ok(())
         }))
+        .on_guild_create(false, |ctx, guild, _| Box::pin(async move {
+            let mut commands = Vec::default();
+            let iam = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("iam")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                    .description("Give yourself a self-assignable role")
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::Role,
+                        "role",
+                        "the role to add",
+                    ).required(true))
+                );
+                idx
+            };
+            let iamn = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("iamn")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                    .description("Remove a self-assignable role from yourself")
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::Role,
+                        "role",
+                        "the role to remove",
+                    ).required(true))
+                );
+                idx
+            };
+            let ping = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("ping")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                    .description("Test if wurstminebot is online")
+                );
+                idx
+            };
+            let update = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("update")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                    .description("Update Minecraft to the latest release")
+                );
+                idx
+            };
+            let veto = {
+                let idx = commands.len();
+                commands.push(CreateCommand::new("veto")
+                    .kind(CommandType::ChatInput)
+                    .dm_permission(false)
+                    .description("Anonymously veto a Wurstmineberg invite")
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::User,
+                        "invitee",
+                        "the invited person to veto",
+                    ).required(true))
+                );
+                idx
+            };
+            let commands = guild.set_commands(ctx, commands).await?;
+            ctx.data.write().await.insert::<CommandIds>(CommandIds {
+                iam: commands[iam].id,
+                iamn: commands[iamn].id,
+                ping: commands[ping].id,
+                update: commands[update].id,
+                veto: commands[veto].id,
+            });
+            Ok(())
+        }))
+        .on_interaction_create(|ctx, interaction| Box::pin(async move {
+            match interaction {
+                Interaction::Command(interaction) => {
+                    if let Some(&command_ids) = ctx.data.read().await.get::<CommandIds>() {
+                        if interaction.data.id == command_ids.iam {
+                            let member = interaction.member.clone().expect("/iam called outside of a guild");
+                            let role_id = match interaction.data.options[0].value {
+                                CommandDataOptionValue::Role(role) => role,
+                                _ => panic!("unexpected slash command option type"),
+                            };
+                            let response = if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role_id) {
+                                "this role is not self-assignable" //TODO (Discord feature request) list only self-assignable roles in autocomplete
+                            } else if member.roles.contains(&role_id) {
+                                "you already have this role"
+                            } else {
+                                member.add_role(&ctx, role_id).await?;
+                                "role added"
+                            };
+                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                .ephemeral(true)
+                                .content(response)
+                            )).await?;
+                        } else if interaction.data.id == command_ids.iamn {
+                            let member = interaction.member.clone().expect("/iamn called outside of a guild");
+                            let role_id = match interaction.data.options[0].value {
+                                CommandDataOptionValue::Role(role) => role,
+                                _ => panic!("unexpected slash command option type"),
+                            };
+                            let response = if !ctx.data.read().await.get::<Config>().expect("missing self-assignable roles list").wurstminebot.self_assignable_roles.contains(&role_id) {
+                                "this role is not self-assignable" //TODO (Discord feature request) list only self-assignable roles in autocomplete
+                            } else if member.roles.contains(&role_id) {
+                                "you already don't have this role"
+                            } else {
+                                member.remove_role(&ctx, role_id).await?;
+                                "role removed"
+                            };
+                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                .ephemeral(true)
+                                .content(response)
+                            )).await?;
+                        } else if interaction.data.id == command_ids.ping {
+                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                .ephemeral(true)
+                                .content({
+                                    let mut rng = thread_rng();
+                                    if rng.gen_bool(0.01) {
+                                        format!("BWO{}{}G", "R".repeat(rng.gen_range(3..20)), "N".repeat(rng.gen_range(1..5)))
+                                    } else {
+                                        format!("pong")
+                                    }
+                                })
+                            )).await?;
+                        } else if interaction.data.id == command_ids.update {
+                            if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == interaction.channel_id) {
+                                //TODO automatic pre-update backup for wurstmineberg world
+                                interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                    .ephemeral(false)
+                                    .content(MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…").build())
+                                )).await?;
+                                let reply = match World::new(world_name).update(VersionSpec::LatestRelease).await { //TODO allow optional args for different version specs?
+                                    Ok(()) => format!("Done!"),
+                                    Err(e) => MessageBuilder::default().push("World update error: ").push_safe(e.to_string()).push(" (").push_mono_safe(format!("{:?}", e)).push(")").build(),
+                                };
+                                interaction.channel_id.say(ctx, reply).await?;
+                            } else {
+                                interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                    .ephemeral(true)
+                                    .content("This channel has no associated Minecraft world.")
+                                )).await?;
+                            }
+                        } else if interaction.data.id == command_ids.veto {
+                            //TODO only allow current members to use this command
+                            let user_id = match interaction.data.options[0].value {
+                                CommandDataOptionValue::User(user) => user,
+                                _ => panic!("unexpected slash command option type"),
+                            };
+                            //TODO validate veto period, kick person from guild and remove from whitelist
+                            GENERAL.say(ctx, MessageBuilder::default()
+                                .push("invite for ")
+                                .mention(&user_id)
+                                .push(" has been vetoed")
+                                .build()
+                            ).await?;
+                            interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                .ephemeral(true)
+                                .content(MessageBuilder::new().push("message posted in ").mention(&GENERAL).build())
+                            )).await?;
+                        } else {
+                            panic!("unexpected slash command")
+                        }
+                    }
+                }
+                Interaction::Component(_) => panic!("received message component interaction even though no message components are registered"),
+                _ => {}
+            }
+            Ok(())
+        }))
         .event_handler(serenity_utils::handler::user_list_exporter::<UserListExporter>())
         .event_handler(serenity_utils::handler::voice_state_exporter::<VoiceStateExporter>())
-        .message_commands(Some("!"), &GROUP) //TODO migrate to slash commands
         .data::<Config>(config)
         .data::<Database>(PgPool::connect_with(PgConnectOptions::default().database("wurstmineberg").application_name("wurstminebot")).await?)
         .task(|ctx_fut, notify_thread_crash| async move {

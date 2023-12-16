@@ -18,12 +18,12 @@ create_exception!(wurstminebot, CommandError, pyo3::exceptions::PyRuntimeError);
 fn user_to_id(user: &PyAny) -> PyResult<UserId> {
     if let Ok(snowflake) = user.getattr("snowflake") {
         // support wurstmineberg_web.models.Person arguments
-        Ok(UserId(snowflake.extract()?))
+        Ok(UserId::new(snowflake.extract()?))
     } else if let Ok(wmbid) = user.getattr("wmbid") {
         Err(CommandError::new_err(format!("Wurstmineberg member {} has no Discord snowflake", wmbid)))
     } else {
         // support plain snowflakes
-        Ok(UserId(user.extract()?))
+        Ok(UserId::new(user.extract()?))
     }
 }
 
@@ -34,7 +34,7 @@ fn user_to_id(user: &PyAny) -> PyResult<UserId> {
 }
 
 #[pyfunction] fn channel_msg(channel_id: u64, msg: String) -> PyResult<()> {
-    wurstminebot_ipc::channel_msg(ChannelId(channel_id), msg)
+    wurstminebot_ipc::channel_msg(ChannelId::new(channel_id), msg)
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 

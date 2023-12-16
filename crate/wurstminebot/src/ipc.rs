@@ -1,10 +1,17 @@
 use {
-    serenity::prelude::*,
+    serenity::all::{
+        Context,
+        EditMember,
+        HttpError,
+    },
     crate::WURSTMINEBERG,
 };
 
 serenity_utils::ipc! {
-    use serenity::model::prelude::*;
+    use serenity::all::{
+        ChannelId,
+        UserId,
+    };
 
     const PORT: u16 = 18809;
 
@@ -25,9 +32,9 @@ serenity_utils::ipc! {
     /// If the given string is equal to the user's username, the display name will instead be removed.
     async fn set_display_name(ctx: &Context, user_id: UserId, new_display_name: String) -> Result<(), String> {
         let user = user_id.to_user(ctx).await.map_err(|e| format!("failed to get user for set-display-name: {}", e))?;
-        WURSTMINEBERG.edit_member(ctx, &user, |e| e.nickname(if user.name == new_display_name { "" } else { &new_display_name })).await.map_err(|e| match e {
-            serenity::Error::Http(e) => if let HttpError::UnsuccessfulRequest(response) = *e {
-                format!("failed to set display name: {:?}", response)
+        WURSTMINEBERG.edit_member(ctx, &user, EditMember::new().nickname(if user.name == new_display_name { "" } else { &new_display_name })).await.map_err(|e| match e {
+            serenity::Error::Http(e) => if let HttpError::UnsuccessfulRequest(response) = e {
+                format!("failed to set display name: {response:?}")
             } else {
                 e.to_string()
             },

@@ -24,6 +24,7 @@ use {
     itertools::Itertools as _,
     lazy_regex::regex_captures,
     serenity::{
+        all::ExecuteWebhook,
         prelude::*,
         utils::MessageBuilder,
     },
@@ -240,7 +241,7 @@ pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO
 async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never, Error> {
     let follower = follow(&world);
     pin_mut!(follower);
-    let mut player_uuids = HashMap::new();
+    let mut player_uuids = HashMap::new(); //TODO persist across wurstminebot restarts?
     while let Some(line) = follower.try_next().await? {
         match line {
             Line::Regular { content, .. } => match content {
@@ -249,18 +250,19 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                     let ctx_data = (*ctx).data.read().await;
                     if let Some(chan_id) = ctx_data.get::<crate::config::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
                         if let Ok(webhook) = chan_id.webhooks(&*ctx).await?.into_iter().exactly_one() {
-                            webhook.execute(&*ctx, false, |w| {
+                            webhook.execute(&*ctx, false, {
+                                let mut w = ExecuteWebhook::new();
                                 if let Some(uuid) = player_uuids.get(&sender) {
-                                    w.avatar_url(format!("https://crafatar.com/renders/head/{}", uuid));
+                                    w = w.avatar_url(format!("https://crafatar.com/renders/head/{}", uuid));
                                 }
                                 w.content(if is_action {
                                     let mut builder = MessageBuilder::default();
                                     builder.push_italic_safe(msg);
-                                    builder
+                                    builder.build()
                                 } else {
                                     let mut builder = MessageBuilder::default();
                                     builder.push_safe(msg);
-                                    builder
+                                    builder.build()
                                 })
                                 .username(sender) //TODO use Discord nickname instead of Minecraft nickname?
                             }).await?;
@@ -280,7 +282,8 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                                 AdvancementKind::Task => " has made the advancement [",
                             })
                             .push_safe(advancement)
-                            .push(']')).await?;
+                            .push(']')
+                            .build()).await?;
                     }
                 }
                 RegularLine::Unknown(_) => {} // ignore all other lines for now

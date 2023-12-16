@@ -16,6 +16,6 @@ version = "0.17"
 features = ["extension-module"]
 
 [dependencies.serenity]
-version = "0.11"
+version = "0.12"
 default-features = false
 features = ["model", "rustls_backend", "utils"]

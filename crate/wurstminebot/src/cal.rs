@@ -5,9 +5,11 @@ use {
         prelude::*,
     },
     serde::Deserialize,
-    serenity::{
-        prelude::*,
-        utils::Colour,
+    serenity::all::{
+        Colour,
+        Context,
+        CreateEmbed,
+        CreateMessage,
     },
     serenity_utils::RwFuture,
     sqlx::{
@@ -134,17 +136,17 @@ pub async fn notifications(ctx_fut: RwFuture<Context>) -> Result<(), Error> {
             let pool = data.get::<Database>().expect("missing database connection");
             event.title(pool).await
         };
-        GENERAL.send_message(&*ctx, |m| m
+        GENERAL.send_message(&*ctx, CreateMessage::new()
             .content(format!("event starting <t:{}:R>", event.start_time.timestamp()))
-            .add_embed(|e| {
-                e.colour(Colour(8794372));
-                e.title(title);
+            .add_embed({
+                let mut e = CreateEmbed::new()
+                    .colour(Colour(8794372))
+                    .title(title);
                 if let Some(loc) = event.discord_location() {
-                    e.description(loc);
+                    e = e.description(loc);
                 }
-                e.field("starts", format!("<t:{}:F>", event.start_time.timestamp()), false);
-                e.field("ends", format!("<t:{}:F>", event.end_time.timestamp()), false);
-                e
+                e.field("starts", format!("<t:{}:F>", event.start_time.timestamp()), false)
+                    .field("ends", format!("<t:{}:F>", event.end_time.timestamp()), false)
             })
         ).await?;
     }

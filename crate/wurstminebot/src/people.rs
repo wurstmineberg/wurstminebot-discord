@@ -40,12 +40,12 @@ impl PersonId {
             if discrim == 0 || discrim > 9999 { panic!("invalid discriminator: {}", discriminator.unwrap()) }
             sqlx::query!("SELECT snowflake FROM people WHERE discorddata->'username' = $1 AND discorddata->'discriminator' = $2", json!(name), json!(i16::try_from(discrim).expect("just checked")))
                 .fetch(pool)
-                .map_ok(|row| UserId(row.snowflake.expect("found Person with discorddata but no snowflake") as u64))
+                .map_ok(|row| UserId::new(row.snowflake.expect("found Person with discorddata but no snowflake") as u64))
                 .boxed()
         } else {
             sqlx::query!("SELECT snowflake FROM people WHERE discorddata->'username' = $1 OR discorddata->'nick' = $1", json!(name))
                 .fetch(pool)
-                .map_ok(|row| UserId(row.snowflake.expect("found Person with discorddata but no snowflake") as u64))
+                .map_ok(|row| UserId::new(row.snowflake.expect("found Person with discorddata but no snowflake") as u64))
                 .boxed()
         };
         Ok(if let Some(first) = matching_ids.try_next().await? {
@@ -61,7 +61,7 @@ impl PersonId {
 
     pub(crate) async fn display(&self, pool: &PgPool) -> String {
         match self {
-            Self::Discord(user_id) => match sqlx::query!(r#"SELECT discorddata->'username' as "username!: Json<String>", discorddata->'nick' as "nick: Json<Option<String>>" FROM people WHERE snowflake = $1"#, user_id.0 as i64).fetch_one(pool).await {
+            Self::Discord(user_id) => match sqlx::query!(r#"SELECT discorddata->'username' as "username!: Json<String>", discorddata->'nick' as "nick: Json<Option<String>>" FROM people WHERE snowflake = $1"#, i64::from(*user_id)).fetch_one(pool).await {
                 Ok(row) => row.nick.and_then(|nick| nick.0).unwrap_or_else(|| row.username.0),
                 Err(_) => format!("<@{}>", user_id),
             },
@@ -70,13 +70,6 @@ impl PersonId {
             } else {
                 wmbid.clone()
             },
-        }
-    }
-
-    pub(crate) fn mention(&self) -> String {
-        match self {
-            Self::Discord(user_id) => user_id.mention().to_string(),
-            Self::LegacyWurstmineberg(wmbid) => wmbid.clone(),
         }
     }
 }
