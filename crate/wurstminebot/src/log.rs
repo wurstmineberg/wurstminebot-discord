@@ -1,6 +1,5 @@
 use {
     std::{
-        collections::HashMap,
         convert::Infallible as Never,
         fmt,
         io,
@@ -39,7 +38,6 @@ use {
         task::JoinError,
     },
     tokio_stream::wrappers::LinesStream,
-    uuid::Uuid,
     crate::util::ResultNeverExt as _,
 };
 
@@ -126,10 +124,6 @@ enum RegularLine {
         msg: String,
         is_action: bool,
     },
-    PlayerUuid {
-        nickname: String,
-        uuid: Uuid,
-    },
     Advancement {
         kind: AdvancementKind,
         player: String,
@@ -153,11 +147,6 @@ impl FromStr for RegularLine {
                 sender: sender.to_owned(),
                 msg: msg.to_owned(),
                 is_action: true,
-            }
-        } else if let Some((_, nickname, uuid)) = regex_captures!("^UUID of player ([A-Za-z0-9_]{3,16}) is ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$", s) {
-            RegularLine::PlayerUuid {
-                nickname: nickname.to_owned(),
-                uuid: uuid.parse().expect("UUID that matches regex should parse"),
             }
         } else if let Some((_, player, advancement)) = regex_captures!(r"^([A-Za-z0-9_]{3,16}) has completed the challenge \[(.+)\]$", s) {
             RegularLine::Advancement {
@@ -241,7 +230,6 @@ pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO
 async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never, Error> {
     let follower = follow(&world);
     pin_mut!(follower);
-    let mut player_uuids = HashMap::<_, Uuid>::default(); //TODO persist across wurstminebot restarts?
     while let Some(line) = follower.try_next().await? {
         match line {
             Line::Regular { content, .. } => match content {
@@ -250,12 +238,9 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                     let ctx_data = (*ctx).data.read().await;
                     if let Some(chan_id) = ctx_data.get::<crate::config::Config>().expect("missing config").wurstminebot.world_channels.get(&world.to_string()) {
                         if let Ok(webhook) = chan_id.webhooks(&*ctx).await?.into_iter().exactly_one() {
-                            webhook.execute(&*ctx, false, {
-                                let mut w = ExecuteWebhook::new();
-                                if let Some(uuid) = player_uuids.get(&sender) {
-                                    w = w.avatar_url(format!("https://minotar.net/armor/bust/{}/1024.png", uuid.simple()));
-                                }
-                                w.content(if is_action {
+                            webhook.execute(&*ctx, false, ExecuteWebhook::new()
+                                .avatar_url(format!("https://minotar.net/armor/bust/{sender}/1024.png"))
+                                .content(if is_action {
                                     let mut builder = MessageBuilder::default();
                                     builder.push_italic_safe(msg);
                                     builder.build()
@@ -265,11 +250,10 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                                     builder.build()
                                 })
                                 .username(sender) //TODO use Discord nickname instead of Minecraft nickname?
-                            }).await?;
+                            ).await?;
                         }
                     }
                 }
-                RegularLine::PlayerUuid { nickname, uuid } => { player_uuids.insert(nickname, uuid); }
                 RegularLine::Advancement { kind, player, advancement } => {
                     let ctx = ctx_fut.read().await;
                     let ctx_data = (*ctx).data.read().await;

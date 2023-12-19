@@ -61,9 +61,6 @@ features = ["transport-tcp-rustls-webpki-roots"]
 git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
 branch = "main"
 
-[target.'cfg(unix)'.dependencies]
-uuid = "1"
-
 [target.'cfg(unix)'.dependencies.chase]
 version = "0.1"
 features = ["stream"]

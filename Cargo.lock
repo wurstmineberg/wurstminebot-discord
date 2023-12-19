@@ -1626,7 +1626,7 @@ source = "git+https://github.com/wurstmineberg/rust-minecraft-types?branch=main#
 dependencies = [
  "serde",
  "serde_json",
- "uuid 0.8.2",
+ "uuid",
 ]
 
 [[package]]
@@ -3597,12 +3597,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "uuid"
-version = "1.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
-
-[[package]]
 name = "uwl"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4033,7 +4027,6 @@ dependencies = [
  "tokio-stream",
  "twitch-irc",
  "twitch_helix",
- "uuid 1.6.1",
 ]
 
 [[package]]
