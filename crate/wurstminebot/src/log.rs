@@ -241,7 +241,7 @@ pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO
 async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never, Error> {
     let follower = follow(&world);
     pin_mut!(follower);
-    let mut player_uuids = HashMap::new(); //TODO persist across wurstminebot restarts?
+    let mut player_uuids = HashMap::<_, Uuid>::default(); //TODO persist across wurstminebot restarts?
     while let Some(line) = follower.try_next().await? {
         match line {
             Line::Regular { content, .. } => match content {
@@ -253,7 +253,7 @@ async fn handle_world(ctx_fut: RwFuture<Context>, world: World) -> Result<Never,
                             webhook.execute(&*ctx, false, {
                                 let mut w = ExecuteWebhook::new();
                                 if let Some(uuid) = player_uuids.get(&sender) {
-                                    w = w.avatar_url(format!("https://crafatar.com/renders/head/{}", uuid));
+                                    w = w.avatar_url(format!("https://minotar.net/armor/bust/{}/1024.png", uuid.simple()));
                                 }
                                 w.content(if is_action {
                                     let mut builder = MessageBuilder::default();

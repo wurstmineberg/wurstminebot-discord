@@ -38,7 +38,8 @@ pub const DEV: ChannelId = ChannelId::new(506905544901001228);
 
 /// The directory where all Wurstmineberg-related files are located: `/opt/wurstmineberg`.
 pub fn base_path() -> &'static Path { //TODO make this a constant when stable
-    Path::new("/opt/wurstmineberg")
+    #[cfg(unix)] { Path::new("/opt/wurstmineberg") }
+    #[cfg(windows)] { Path::new("C:/Users/fenhl/games/minecraft/srv/wmb") } // for testing
 }
 
 /// Errors that may occur in this crate.
