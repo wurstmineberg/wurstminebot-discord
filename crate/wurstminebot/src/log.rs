@@ -39,6 +39,7 @@ use {
         io::{
             self,
             AsyncBufReadExt as _,
+            AsyncReadExt as _,
             BufReader,
         },
         sync::RwLock,
@@ -55,7 +56,10 @@ use {
             File,
         },
         io_error_from_reqwest,
-        traits::ReqwestResponseExt as _,
+        traits::{
+            IoResultExt as _,
+            ReqwestResponseExt as _,
+        },
     },
 };
 
@@ -285,14 +289,32 @@ impl Line {
     }
 }
 
-fn history(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Result<Line, Error>> {
-    stream::once(fs::read_to_string(world.dir().join("logs/latest.log")))
-        .err_into::<Error>()
-        .and_then(move |contents| {
+async fn history_paths(world: &World) -> Result<Vec<PathBuf>, Error> {
+    let mut logs = fs::read_dir(world.dir().join("logs")).map_ok(|entry| entry.path()).try_collect::<Vec<_>>().await?;
+    logs.sort_unstable_by(|a, b| b.cmp(a));
+    logs.reserve_exact(1);
+    logs.push(world.dir().join("server.log"));
+    Ok(logs)
+}
+
+fn history(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Result<Line, Error>> + '_ {
+    stream::once(history_paths(world))
+        .and_then(move |paths| {
             let http_client = http_client.clone();
             future::ok(
-                stream::iter(contents.lines().rev().map(|line| line.to_owned()).collect_vec())
-                    .then(move |line| {
+                stream::iter(paths)
+                    .then(|path| async move {
+                        if path.extension().is_some_and(|ext| ext == "gz") {
+                            let mut buf = String::default();
+                            async_compression::tokio::bufread::GzipDecoder::new(BufReader::new(File::open(&path).await?)).read_to_string(&mut buf).await.at(path)?;
+                            Ok(buf)
+                        } else {
+                            fs::read_to_string(path).await
+                        }
+                    })
+                    .and_then(|contents| future::ok(stream::iter(contents.lines().rev().map(|line| line.to_owned()).collect_vec()).map(Ok)))
+                    .try_flatten()
+                    .and_then(move |line| {
                         let http_client = http_client.clone();
                         async move {
                             Line::parse(Arc::new(RwLock::new(FollowerState { // reset state for each line since we're going backwards
