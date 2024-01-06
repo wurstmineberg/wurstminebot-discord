@@ -167,7 +167,7 @@ fn format_to_regex(format: &str) -> Result<Regex, regex::Error> {
 
 impl RegularLine {
     async fn parse(state: Arc<RwLock<FollowerState>>, s: &str) -> Result<Self, Error> {
-        Ok(if let Some((_, version)) = regex_captures!("^Starting minecraft server version (.+)%", s) {
+        Ok(if let Some((_, version)) = regex_captures!("^Starting minecraft server version (.+)$", s) {
             let mut state = state.write().await;
             if state.minecraft_version.as_ref().map_or(true, |prev_version| prev_version != version) {
                 state.minecraft_version = Some(version.to_owned());
@@ -375,10 +375,9 @@ pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO
     }
     match try_join_all(handles).await?.pop() {
         Some(Ok(never)) => match never {},
-        Some(Err(e)) => return Err(e),
-        None => {}
+        Some(Err(e)) => Err(e),
+        None => Err(Error::NoWorlds),
     }
-    Err(Error::NoWorlds)
 }
 
 async fn handle_world(http_client: reqwest::Client, ctx_fut: RwFuture<Context>, world: World) -> Result<Never, Error> {
