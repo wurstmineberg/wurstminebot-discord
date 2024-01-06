@@ -290,7 +290,7 @@ fn follow(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Res
             .map_err(|()| Error::Channel)
             .scan(
                 Arc::new(RwLock::new(FollowerState {
-                    minecraft_version: None /*TODO check log history for current Minecraft version */,
+                    minecraft_version: None, //TODO check log history for current Minecraft version
                     death_messages: HashMap::default(),
                     http_client,
                 })),

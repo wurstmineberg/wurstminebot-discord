@@ -58,11 +58,11 @@ use {
         cal,
         config::Config,
         http,
+        log,
         minecraft::tellraw,
         twitch,
     },
 };
-#[cfg(unix)] use wurstminebot::log;
 
 enum UserListExporter {}
 
@@ -464,16 +464,11 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 notify_thread_crash(format!("HTTP server"), Box::new(e), None).await;
             }
         })
-        .task(|#[cfg_attr(not(unix), allow(unused))] ctx_fut, #[cfg_attr(not(unix), allow(unused))] notify_thread_crash| async move {
-            #[cfg(unix)] {
-                // follow the Minecraft log
-                if let Err(e) = log::handle(ctx_fut).await {
-                    eprintln!("{}", e);
-                    notify_thread_crash(format!("log"), Box::new(e), None).await;
-                }
-            }
-            #[cfg(not(unix))] {
-                eprintln!("warning: Minecraft log analysis is only supported on cfg(unix) because of https://github.com/lloydmeta/chase-rs/issues/6");
+        .task(|ctx_fut, notify_thread_crash| async move {
+            // follow the Minecraft log
+            if let Err(e) = log::handle(ctx_fut).await {
+                eprintln!("{}", e);
+                notify_thread_crash(format!("log"), Box::new(e), None).await;
             }
         })
         .task(|ctx_fut, notify_thread_crash| async move {

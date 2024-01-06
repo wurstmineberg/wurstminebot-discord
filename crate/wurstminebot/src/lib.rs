@@ -17,7 +17,7 @@ pub mod cal;
 pub mod config;
 pub mod http;
 pub mod ipc;
-#[cfg(unix)] pub mod log;
+pub mod log;
 pub mod minecraft;
 pub mod parse;
 pub mod people;
@@ -47,7 +47,7 @@ pub enum Error {
     #[error(transparent)] Ipc(#[from] crate::ipc::Error),
     #[error(transparent)] Join(#[from] tokio::task::JoinError),
     #[error(transparent)] Json(#[from] serde_json::Error),
-    #[cfg(unix)] #[error(transparent)] Log(#[from] log::Error),
+    #[error(transparent)] Log(#[from] log::Error),
     #[error(transparent)] Minecraft(#[from] systemd_minecraft::Error),
     #[error(transparent)] Serenity(#[from] serenity::Error),
     #[error(transparent)] Sql(#[from] sqlx::Error),

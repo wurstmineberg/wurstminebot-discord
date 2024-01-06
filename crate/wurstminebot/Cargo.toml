@@ -16,24 +16,42 @@ warnings = "deny"
 
 [dependencies]
 chrono = "0.4"
-futures = "0.3"
 ics = "0.5"
 itertools = "0.12"
 lazy-regex = "3"
 rcon = "0.6"
+regex = "1"
 rocket = "0.5"
 serde_json = "1" #TODO make sure enabling the arbitrary_precision feature doesn't break anything
 serenity = "0.12"
 thiserror = "1"
+
+[dependencies.async_zip]
+version = "0.0.16"
+features = ["full"]
+
+[dependencies.chase]
+git = "https://github.com/fenhl/chase-rs"
+branch = "dev-fenhl"
+features = ["stream"]
 
 [dependencies.derive_more]
 version = "0.99"
 default-features = false
 features = ["from"]
 
+[dependencies.futures]
+version = "0.3"
+features = ["compat"]
+
 [dependencies.minecraft]
 git = "https://github.com/wurstmineberg/rust-minecraft-types"
 branch = "main"
+
+[dependencies.reqwest]
+version = "0.11"
+default-features = false
+features = ["rustls-tls", "trust-dns"]
 
 [dependencies.rocket-util]
 git = "https://github.com/fenhl/rocket-util"
@@ -62,6 +80,14 @@ package = "minecraft"
 version = "1.3"
 features = ["fs", "macros", "parking_lot", "sync", "rt-multi-thread"]
 
+[dependencies.tokio-stream]
+version = "0.1"
+features = ["io-util"]
+
+[dependencies.tokio-util]
+version = "0.7"
+features = ["io"]
+
 [dependencies.twitch-irc]
 version = "5"
 default-features = false
@@ -71,39 +97,11 @@ features = ["transport-tcp-rustls-webpki-roots"]
 git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
 branch = "main"
 
-[target.'cfg(unix)'.dependencies]
-regex = "1"
-
-[target.'cfg(unix)'.dependencies.async_zip]
-version = "0.0.16"
-features = ["full"]
-
-[target.'cfg(unix)'.dependencies.chase]
-version = "0.1"
-features = ["stream"]
-
-[target.'cfg(unix)'.dependencies.futures]
-version = "0.3"
-features = ["compat"]
-
-[target.'cfg(unix)'.dependencies.reqwest]
-version = "0.11"
-default-features = false
-features = ["rustls-tls", "trust-dns"]
-
-[target.'cfg(unix)'.dependencies.tokio-stream]
-version = "0.1"
-features = ["io-util"]
-
-[target.'cfg(unix)'.dependencies.tokio-util]
-version = "0.7"
-features = ["io"]
-
-[target.'cfg(unix)'.dependencies.url]
+[dependencies.url]
 version = "2"
 features = ["serde"]
 
-[target.'cfg(unix)'.dependencies.wheel]
+[dependencies.wheel]
 git = "https://github.com/fenhl/wheel"
 branch = "main"
 features = ["reqwest", "serde", "serde_json"]
