@@ -26,6 +26,8 @@ pub struct ConfigWurstminebot {
     pub self_assignable_roles: BTreeSet<RoleId>,
     #[serde(default)]
     pub world_channels: BTreeMap<String, ChannelId>,
+    #[serde(default)]
+    pub world_channel_topics: BTreeMap<String, String>,
 }
 
 impl Config {

@@ -3,6 +3,7 @@ use {
         collections::HashMap,
         convert::Infallible as Never,
         path::PathBuf,
+        pin::pin,
         str::FromStr,
         sync::Arc,
         time::Duration,
@@ -25,7 +26,10 @@ use {
     regex::Regex,
     serde::Deserialize,
     serenity::{
-        all::ExecuteWebhook,
+        all::{
+            EditChannel,
+            ExecuteWebhook,
+        },
         prelude::*,
         utils::MessageBuilder,
     },
@@ -128,7 +132,9 @@ enum AdvancementKind {
 }
 
 enum RegularLine {
-    ServerStart,
+    ServerStart {
+        minecraft_version: String,
+    },
     Chat {
         sender: String,
         msg: String,
@@ -211,7 +217,9 @@ impl RegularLine {
                     .map(|(key, format)| Ok::<_, Error>((key.to_owned(), format_to_regex(format)?)))
                     .try_collect()?;
             }
-            Self::ServerStart
+            Self::ServerStart {
+                minecraft_version: version.to_owned(),
+            }
         } else if let Some((_, sender, msg)) = regex_captures!("^(?:\\[Not Secure\\] )?<([A-Za-z0-9_]{3,16})> (.+)$", s) {
             Self::Chat {
                 sender: sender.to_owned(),
@@ -277,8 +285,31 @@ impl Line {
     }
 }
 
+fn history(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Result<Line, Error>> {
+    stream::once(fs::read_to_string(world.dir().join("logs/latest.log")))
+        .err_into::<Error>()
+        .and_then(move |contents| {
+            let http_client = http_client.clone();
+            future::ok(
+                stream::iter(contents.lines().rev().map(|line| line.to_owned()).collect_vec())
+                    .then(move |line| {
+                        let http_client = http_client.clone();
+                        async move {
+                            Line::parse(Arc::new(RwLock::new(FollowerState { // reset state for each line since we're going backwards
+                                minecraft_version: None,
+                                death_messages: HashMap::default(),
+                                http_client,
+                            })), &line).await
+                        }
+                    })
+                    //TODO chain previous logs
+            )
+        })
+        .try_flatten()
+}
+
 /// Follows the log of the given world, starting after the last line break at the time the stream is started.
-fn follow(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Result<Line, Error>> {
+fn follow(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Result<Line, Error>> + '_ {
     let log_path = world.dir().join("logs/latest.log");
     stream::once(async {
         let init_lines = LinesStream::new(BufReader::new(File::open(&log_path).await?).lines()).try_fold(0, |acc, _| future::ok(acc + 1)).await?;
@@ -286,7 +317,11 @@ fn follow(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Res
         let stream = ReceiverStream::new(chaser.run())
             .scan(
                 Arc::new(RwLock::new(FollowerState {
-                    minecraft_version: None, //TODO check log history for current Minecraft version
+                    minecraft_version: pin!(history(http_client.clone(), world).try_filter_map(|line| future::ok(if let Line::Regular { content: RegularLine::ServerStart { minecraft_version } } = line {
+                        Some(minecraft_version)
+                    } else {
+                        None
+                    }))).try_next().await?,
                     death_messages: HashMap::default(),
                     http_client,
                 })),
@@ -330,6 +365,16 @@ async fn handle_world(http_client: reqwest::Client, ctx_fut: RwFuture<Context>, 
     while let Some(line) = follower.try_next().await? {
         match line {
             Line::Regular { content, .. } => match content {
+                RegularLine::ServerStart { minecraft_version } => {
+                    let ctx = ctx_fut.read().await;
+                    let ctx_data = (*ctx).data.read().await;
+                    let config = ctx_data.get::<crate::config::Config>().expect("missing config");
+                    if let Some(chan_id) = config.wurstminebot.world_channels.get(&world.to_string()) {
+                        if let Some(topic) = config.wurstminebot.world_channel_topics.get(&world.to_string()) {
+                            chan_id.edit(&*ctx, EditChannel::new().topic(format!("{topic}, currently running on {minecraft_version}"))).await?;
+                        }
+                    }
+                }
                 RegularLine::Chat { sender, msg, is_action } => {
                     let ctx = ctx_fut.read().await;
                     let ctx_data = (*ctx).data.read().await;
@@ -374,7 +419,7 @@ async fn handle_world(http_client: reqwest::Client, ctx_fut: RwFuture<Context>, 
                         chan_id.say(&*ctx, msg).await?;
                     }
                 }
-                RegularLine::ServerStart | RegularLine::Unknown(_) => {} // ignore all other lines for now
+                RegularLine::Unknown(_) => {} // ignore all other lines for now
             },
             Line::Unknown(_) => {} // ignore all other lines for now
         }
