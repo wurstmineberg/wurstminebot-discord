@@ -215,10 +215,10 @@ impl RegularLine {
                 let index = zip_file.file().entries().iter().position(|entry| entry.filename().as_str().map_or(false, |filename| filename == "assets/minecraft/lang/en_us.json")).ok_or(Error::MissingLangFile)?;
                 let mut english = String::default();
                 zip_file.reader_with_entry(index).await?.read_to_string_checked(&mut english).await?;
-                state.death_messages = serde_json::from_str::<HashMap<&str, &str>>(&english)?
+                state.death_messages = serde_json::from_str::<HashMap<String, String>>(&english)?
                     .into_iter()
                     .filter(|(key, _)| key.starts_with("death."))
-                    .map(|(key, format)| Ok::<_, Error>((key.to_owned(), format_to_regex(format)?)))
+                    .map(|(key, format)| Ok::<_, Error>((key.to_owned(), format_to_regex(&format)?)))
                     .try_collect()?;
             }
             Self::ServerStart {
