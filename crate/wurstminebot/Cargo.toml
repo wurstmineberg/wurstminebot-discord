@@ -32,8 +32,7 @@ features = ["full"]
 
 [dependencies.chase]
 git = "https://github.com/fenhl/chase-rs"
-branch = "dev-fenhl"
-features = ["stream"]
+branch = "wmb"
 
 [dependencies.derive_more]
 version = "0.99"

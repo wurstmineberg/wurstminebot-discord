@@ -7,12 +7,8 @@ use {
         sync::Arc,
         time::Duration,
     },
-    chase::{
-        ChaseError,
-        Chaser,
-    },
+    chase::Chaser,
     futures::{
-        compat::Stream01CompatExt as _,
         future::try_join_all,
         pin_mut,
         prelude::*,
@@ -43,7 +39,10 @@ use {
         },
         sync::RwLock,
     },
-    tokio_stream::wrappers::LinesStream,
+    tokio_stream::wrappers::{
+        LinesStream,
+        ReceiverStream,
+    },
     tokio_util::io::StreamReader,
     url::Url,
     wheel::{
@@ -58,7 +57,7 @@ use {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error(transparent)] Chase(#[from] ChaseError),
+    #[error(transparent)] Chase(#[from] chase::Error),
     #[error(transparent)] Io(#[from] io::Error),
     #[error(transparent)] Json(#[from] serde_json::Error),
     #[error(transparent)] Minecraft(#[from] systemd_minecraft::Error),
@@ -282,12 +281,9 @@ impl Line {
 fn follow(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Result<Line, Error>> {
     let log_path = world.dir().join("logs/latest.log");
     stream::once(async {
-        let init_lines = LinesStream::new(BufReader::new(File::open(&log_path).await?).lines()).try_fold(0, |acc, _| async move { Ok(acc + 1) }).await?;
-        let mut chaser = Chaser::new(log_path);
-        chaser.line = chase::Line(init_lines);
-        let (rx, _ /*handle*/) = chaser.run_stream()?; //TODO handle errors in the stream using `handle`
-        let stream = rx.compat()
-            .map_err(|()| Error::Channel)
+        let init_lines = LinesStream::new(BufReader::new(File::open(&log_path).await?).lines()).try_fold(0, |acc, _| future::ok(acc + 1)).await?;
+        let chaser = Chaser::new(log_path, chase::Line(init_lines));
+        let stream = ReceiverStream::new(chaser.run())
             .scan(
                 Arc::new(RwLock::new(FollowerState {
                     minecraft_version: None, //TODO check log history for current Minecraft version
@@ -298,8 +294,8 @@ fn follow(http_client: reqwest::Client, world: &World) -> impl Stream<Item = Res
                     let state = Arc::clone(&state);
                     async move {
                         Some(match res {
-                            Ok((line, _, _)) => Line::parse(state, &line).await,
-                            Err(e) => Err(e),
+                            Ok(line) => Line::parse(state, &line).await,
+                            Err(e) => Err(e.into()),
                         })
                     }
                 },
