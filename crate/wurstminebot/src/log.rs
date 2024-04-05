@@ -96,7 +96,7 @@ impl From<Never> for Error {
 
 enum Thread {
     Server,
-    Unknown(String),
+    Unknown,
 }
 
 impl FromStr for Thread {
@@ -105,7 +105,7 @@ impl FromStr for Thread {
     fn from_str(s: &str) -> Result<Thread, Never> {
         Ok(match s {
             "Server thread" => Thread::Server,
-            _ => Thread::Unknown(s.to_owned()),
+            _ => Thread::Unknown,
         })
     }
 }
@@ -152,7 +152,7 @@ enum RegularLine {
     Death {
         msg: String,
     },
-    Unknown(String),
+    Unknown,
 }
 
 struct FollowerState {
@@ -259,7 +259,7 @@ impl RegularLine {
                 msg: s.to_owned(),
             }
         } else {
-            Self::Unknown(s.to_owned())
+            Self::Unknown
         })
     }
 }
@@ -271,7 +271,7 @@ enum Line {
         //level: Level,
         content: RegularLine,
     },
-    Unknown(String),
+    Unknown,
 }
 
 impl Line {
@@ -284,7 +284,7 @@ impl Line {
                 content: RegularLine::parse(state, content).await?,
             }
         } else {
-            Self::Unknown(s.to_owned())
+            Self::Unknown
         })
     }
 }
@@ -366,7 +366,7 @@ pub async fn handle(ctx_fut: RwFuture<Context>) -> Result<Never, Error> { //TODO
         .user_agent(concat!("wurstminebot/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(30))
         .use_rustls_tls()
-        .trust_dns(true)
+        .hickory_dns(true)
         .https_only(true)
         .build()?;
     let mut handles = Vec::default();
@@ -440,9 +440,9 @@ async fn handle_world(http_client: reqwest::Client, ctx_fut: RwFuture<Context>, 
                         chan_id.say(&*ctx, msg).await?;
                     }
                 }
-                RegularLine::Unknown(_) => {} // ignore all other lines for now
+                RegularLine::Unknown => {} // ignore all other lines for now
             },
-            Line::Unknown(_) => {} // ignore all other lines for now
+            Line::Unknown => {} // ignore all other lines for now
         }
     }
     Err(Error::FollowEnded)

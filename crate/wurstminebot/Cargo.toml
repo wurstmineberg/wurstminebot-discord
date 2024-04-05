@@ -31,17 +31,12 @@ version = "0.4"
 features = ["gzip", "tokio"]
 
 [dependencies.async_zip]
-version = "0.0.16"
+version = "0.0.17"
 features = ["full"]
 
 [dependencies.chase]
 git = "https://github.com/fenhl/chase-rs"
 branch = "wmb"
-
-[dependencies.derive_more]
-version = "0.99"
-default-features = false
-features = ["from"]
 
 [dependencies.futures]
 version = "0.3"
@@ -52,9 +47,9 @@ git = "https://github.com/wurstmineberg/rust-minecraft-types"
 branch = "main"
 
 [dependencies.reqwest]
-version = "0.11"
+version = "0.12"
 default-features = false
-features = ["rustls-tls", "trust-dns"]
+features = ["charset", "hickory-dns", "http2", "macos-system-configuration", "rustls-tls", "stream"]
 
 [dependencies.rocket-util]
 git = "https://github.com/fenhl/rocket-util"

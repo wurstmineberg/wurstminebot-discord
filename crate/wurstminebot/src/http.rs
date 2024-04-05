@@ -1,7 +1,6 @@
 use {
     std::io,
     chrono::prelude::*,
-    derive_more::From,
     futures::stream::TryStreamExt as _,
     ics::{
         ICalendar,
@@ -34,10 +33,10 @@ use {
     },
 };
 
-#[derive(Debug, From)]
+#[derive(Debug, thiserror::Error)]
 enum Error {
-    Io(io::Error),
-    Sql(sqlx::Error),
+    #[error(transparent)] Io(#[from] io::Error),
+    #[error(transparent)] Sql(#[from] sqlx::Error),
 }
 
 impl<'r> Responder<'r, 'static> for Error {
