@@ -1,6 +1,3 @@
-#![deny(rust_2018_idioms, unused, unused_crate_dependencies, unused_import_braces, unused_lifetimes, unused_qualifications, warnings)]
-#![forbid(unsafe_code)]
-
 use {
     pyo3::{
         create_exception,
@@ -15,7 +12,7 @@ use {
 
 create_exception!(wurstminebot, CommandError, pyo3::exceptions::PyRuntimeError);
 
-fn user_to_id(user: &PyAny) -> PyResult<UserId> {
+fn user_to_id(user: &Bound<'_, PyAny>) -> PyResult<UserId> {
     if let Ok(snowflake) = user.getattr("snowflake") {
         // support wurstmineberg_web.models.Person arguments
         Ok(UserId::new(snowflake.extract()?))
@@ -43,16 +40,16 @@ fn user_to_id(user: &PyAny) -> PyResult<UserId> {
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
-#[pyfunction] fn set_display_name(user_id: &PyAny, new_display_name: String) -> PyResult<()> {
+#[pyfunction] fn set_display_name(user_id: &Bound<'_, PyAny>, new_display_name: String) -> PyResult<()> {
     wurstminebot_ipc::set_display_name(user_to_id(user_id)?, new_display_name)
         .map_err(|e| CommandError::new_err(e.to_string()))
 }
 
-#[pymodule] fn wurstminebot(_: Python<'_>, m: &PyModule) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(escape))?;
+#[pymodule] fn wurstminebot(_: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(escape, m.clone())?)?;
     //TODO make sure that all IPC commands are listed below
-    m.add_wrapped(wrap_pyfunction!(channel_msg))?;
-    m.add_wrapped(wrap_pyfunction!(quit))?;
-    m.add_wrapped(wrap_pyfunction!(set_display_name))?;
+    m.add_function(wrap_pyfunction!(channel_msg, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(quit, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(set_display_name, m.clone())?)?;
     Ok(())
 }

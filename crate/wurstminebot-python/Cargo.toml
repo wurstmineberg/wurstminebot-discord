@@ -4,18 +4,21 @@ version.workspace = true
 authors.workspace = true
 edition.workspace = true
 
+[lints.rust]
+rust_2018_idioms = "deny"
+unsafe_code = "forbid"
+unused = "deny"
+unused_crate_dependencies = "deny"
+unused_import_braces = "deny"
+unused_lifetimes = "deny"
+unused_qualifications = "deny"
+warnings = "deny"
+
 [lib]
 name = "wurstminebot"
 crate-type = ["cdylib"]
 
-[dependencies.wurstminebot-ipc]
-path = "../wurstminebot-ipc"
-
-[dependencies.pyo3]
-version = "0.20"
-features = ["extension-module"]
-
-[dependencies.serenity]
-version = "0.12"
-default-features = false
-features = ["model", "rustls_backend", "utils"]
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+serenity = { version = "0.12", default-features = false, features = ["model", "rustls_backend", "utils"] }
+wurstminebot-ipc = { path = "../wurstminebot-ipc" }

@@ -50,6 +50,7 @@ use {
         process::Command,
         time::sleep,
     },
+    wheel::traits::AsyncCommandOutputExt as _,
     wurstminebot::{
         DEV,
         Database,
@@ -285,7 +286,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("iam")
                     .kind(CommandType::ChatInput)
-                    .dm_permission(false)
+                    .add_context(InteractionContext::Guild)
                     .description("Give yourself a self-assignable role")
                     .add_option(CreateCommandOption::new(
                         CommandOptionType::Role,
@@ -299,7 +300,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("iamn")
                     .kind(CommandType::ChatInput)
-                    .dm_permission(false)
+                    .add_context(InteractionContext::Guild)
                     .description("Remove a self-assignable role from yourself")
                     .add_option(CreateCommandOption::new(
                         CommandOptionType::Role,
@@ -313,7 +314,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("ping")
                     .kind(CommandType::ChatInput)
-                    .dm_permission(false)
+                    .add_context(InteractionContext::Guild)
                     .description("Test if wurstminebot is online")
                 );
                 idx
@@ -322,8 +323,13 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("update")
                     .kind(CommandType::ChatInput)
-                    .dm_permission(false)
-                    .description("Update Minecraft to the latest release")
+                    .add_context(InteractionContext::Guild)
+                    .description("Update this Minecraft world")
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::String,
+                        "version",
+                        "the version to update to, defaults to latest release",
+                    ).required(false))
                 );
                 idx
             };
@@ -331,7 +337,7 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                 let idx = commands.len();
                 commands.push(CreateCommand::new("veto")
                     .kind(CommandType::ChatInput)
-                    .dm_permission(false)
+                    .add_context(InteractionContext::Guild)
                     .description("Anonymously veto a Wurstmineberg invite")
                     .add_option(CreateCommandOption::new(
                         CommandOptionType::User,
@@ -405,12 +411,28 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
                             )).await?;
                         } else if interaction.data.id == command_ids.update {
                             if let Some((world_name, _)) = ctx.data.read().await.get::<Config>().expect("missing config").wurstminebot.world_channels.iter().find(|(_, &chan_id)| chan_id == interaction.channel_id) {
-                                //TODO automatic pre-update backup for wurstmineberg world
-                                interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
-                                    .ephemeral(false)
-                                    .content(MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…").build())
-                                )).await?;
-                                let reply = match World::new(world_name).update(VersionSpec::LatestRelease).await { //TODO allow optional args for different version specs?
+                                let version_spec = if let Some(option) = interaction.data.options.get(0) {
+                                    match &option.value {
+                                        CommandDataOptionValue::String(version) => VersionSpec::Exact(version.clone()),
+                                        _ => panic!("unexpected slash command option type"),
+                                    }
+                                } else {
+                                    VersionSpec::LatestRelease
+                                };
+                                if *world_name == World::default().to_string() {
+                                    interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                        .ephemeral(false)
+                                        .content(MessageBuilder::default().push("Backing up ").push_safe(world_name).push(" world…").build())
+                                    )).await?;
+                                    Command::new("/opt/wurstmineberg/bin/wurstminebackup").check("wurstminebackup").await?;
+                                    interaction.channel_id.say(ctx, MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…").build()).await?;
+                                } else {
+                                    interaction.create_response(ctx, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
+                                        .ephemeral(false)
+                                        .content(MessageBuilder::default().push("Updating ").push_safe(world_name).push(" world…").build())
+                                    )).await?;
+                                }
+                                let reply = match World::new(world_name).update(version_spec).await {
                                     Ok(()) => format!("Done!"),
                                     Err(e) => MessageBuilder::default().push("World update error: ").push_safe(e.to_string()).push(" (").push_mono_safe(format!("{:?}", e)).push(")").build(),
                                 };
@@ -466,10 +488,9 @@ async fn main() -> Result<serenity_utils::Builder, Error> {
         })
         .task(|ctx_fut, notify_thread_crash| async move {
             // follow the Minecraft log
-            if let Err(e) = log::handle(ctx_fut).await {
-                eprintln!("{}", e);
-                notify_thread_crash(format!("log"), Box::new(e), None).await;
-            }
+            let Err(e) = log::handle(ctx_fut).await;
+            eprintln!("{}", e);
+            notify_thread_crash(format!("log"), Box::new(e), None).await;
         })
         .task(|ctx_fut, notify_thread_crash| async move {
             // listen for Twitch chat messages

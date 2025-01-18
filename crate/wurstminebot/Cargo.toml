@@ -15,91 +15,31 @@ unused_qualifications = "deny"
 warnings = "deny"
 
 [dependencies]
+async-compression = { version = "0.4", features = ["gzip", "tokio"] }
+async_zip = { version = "0.0.17", features = ["full"] }
+chase = { git = "https://github.com/fenhl/chase-rs", branch = "wmb" }
 chrono = "0.4"
+futures = { version = "0.3", features = ["compat"] }
 ics = "0.5"
-itertools = "0.12"
+itertools = "0.14"
 lazy-regex = "3"
+minecraft = { git = "https://github.com/wurstmineberg/rust-minecraft-types", branch = "main" }
 rcon = "0.6"
 regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["charset", "hickory-dns", "http2", "macos-system-configuration", "rustls-tls", "stream"] }
 rocket = "0.5"
+rocket-util = { git = "https://github.com/fenhl/rocket-util", branch = "main", features = ["ics"] }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1" #TODO make sure enabling the arbitrary_precision feature doesn't break anything
 serenity = "0.12"
-thiserror = "1"
-
-[dependencies.async-compression]
-version = "0.4"
-features = ["gzip", "tokio"]
-
-[dependencies.async_zip]
-version = "0.0.17"
-features = ["full"]
-
-[dependencies.chase]
-git = "https://github.com/fenhl/chase-rs"
-branch = "wmb"
-
-[dependencies.futures]
-version = "0.3"
-features = ["compat"]
-
-[dependencies.minecraft]
-git = "https://github.com/wurstmineberg/rust-minecraft-types"
-branch = "main"
-
-[dependencies.reqwest]
-version = "0.12"
-default-features = false
-features = ["charset", "hickory-dns", "http2", "macos-system-configuration", "rustls-tls", "stream"]
-
-[dependencies.rocket-util]
-git = "https://github.com/fenhl/rocket-util"
-branch = "main"
-features = ["ics"]
-
-[dependencies.serde]
-version = "1"
-features = ["derive"]
-
-[dependencies.serenity-utils]
-git = "https://github.com/fenhl/serenity-utils" #TODO publish to crates.io?
-branch = "main"
-
-[dependencies.sqlx]
-version = "0.7"
-default-features = false
-features = ["chrono", "json", "macros", "postgres", "runtime-tokio-rustls"]
-
-[dependencies.systemd_minecraft]
-git = "https://github.com/wurstmineberg/systemd-minecraft"
-branch = "riir"
-package = "minecraft"
-
-[dependencies.tokio]
-version = "1.3"
-features = ["fs", "macros", "parking_lot", "sync", "rt-multi-thread"]
-
-[dependencies.tokio-stream]
-version = "0.1"
-features = ["io-util"]
-
-[dependencies.tokio-util]
-version = "0.7"
-features = ["io"]
-
-[dependencies.twitch-irc]
-version = "5"
-default-features = false
-features = ["transport-tcp-rustls-webpki-roots"]
-
-[dependencies.twitch_helix]
-git = "https://github.com/fenhl/rust-twitch-helix" #TODO publish to crates.io
-branch = "main"
-
-[dependencies.url]
-version = "2"
-features = ["serde"]
-
-[dependencies.wheel]
-git = "https://github.com/fenhl/wheel"
-branch = "main"
-features = ["reqwest", "serde", "serde_json"]
+serenity-utils = { git = "https://github.com/fenhl/serenity-utils", branch = "main" } #TODO publish to crates.io?
+sqlx = { version = "0.8", default-features = false, features = ["chrono", "json", "macros", "postgres", "runtime-tokio", "tls-rustls-ring-webpki"] }
+systemd_minecraft = { git = "https://github.com/wurstmineberg/systemd-minecraft", branch = "riir", package = "minecraft" }
+thiserror = "2"
+tokio = { version = "1.3", features = ["fs", "macros", "parking_lot", "sync", "rt-multi-thread"] }
+tokio-stream = { version = "0.1", features = ["io-util"] }
+tokio-util = { version = "0.7", features = ["io"] }
+twitch-irc = { version = "5", default-features = false, features = ["transport-tcp-rustls-webpki-roots"] }
+twitch_helix = { git = "https://github.com/fenhl/rust-twitch-helix", branch = "main" } #TODO publish to crates.io
+url = { version = "2", features = ["serde"] }
+wheel = { git = "https://github.com/fenhl/wheel", branch = "main", features = ["reqwest", "serde", "serde_json"] }

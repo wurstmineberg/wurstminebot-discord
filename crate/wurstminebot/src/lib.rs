@@ -44,7 +44,7 @@ pub fn base_path() -> &'static Path { //TODO make this a constant when stable
 pub enum Error {
     #[error(transparent)] Envar(#[from] env::VarError),
     #[error(transparent)] Io(#[from] io::Error),
-    #[error(transparent)] Ipc(#[from] crate::ipc::Error),
+    #[error(transparent)] Ipc(#[from] ipc::Error),
     #[error(transparent)] Join(#[from] tokio::task::JoinError),
     #[error(transparent)] Json(#[from] serde_json::Error),
     #[error(transparent)] Log(#[from] log::Error),
