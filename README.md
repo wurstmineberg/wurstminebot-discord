@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository is archived since the code has been merged into the [wurstmineberg.de](https://github.com/wurstmineberg/wurstmineberg.de) repository.
+
 **wurstminebot** is [Wurstmineberg](https://wurstmineberg.de/)'s [Discord](https://discord.com/) bot. This project is the successor to [the original wurstminebot](https://github.com/wurstmineberg/wurstminebot) from the [IRC](https://en.wikipedia.org/wiki/Internet_Relay_Chat) era and to [slackminebot](https://github.com/wurstmineberg/slackminebot) from the [Slack](https://slack.com/) era.
 
 # Features
